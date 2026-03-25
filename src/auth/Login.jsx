@@ -33,7 +33,7 @@ export default function Login({ setIsAuthenticated }) {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       if (setIsAuthenticated) setIsAuthenticated(true);
-      alert("เข้าสู่ระบบสำเร็จ ลุยเลยนาย!");
+      alert("เข้าสู่ระบบสำเร็จ ลุยเลย!");
       navigate('/game');
     } catch (err) {
       setError('รหัสผ่านไม่ถูกต้อง หรือยังไม่ได้สมัครสมาชิก');
