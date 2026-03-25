@@ -6,13 +6,13 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, runTransaction, deleteDoc } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBlFZBi7MQWRl7uZZGrZPlTKmL559GN6mU",
-  authDomain: "beastrealm-5a869.firebaseapp.com",
-  projectId: "beastrealm-5a869",
-  storageBucket: "beastrealm-5a869.firebasestorage.app",
-  messagingSenderId: "987837920919",
-  appId: "1:987837920919:web:c3062c31e5979a426e5bd2",
-  measurementId: "G-KW7816QMR3"
+  apiKey: process.env.FIREBASE_API_KEY,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.FIREBASE_APP_ID,
+  measurementId: process.env.FIREBASE_MEASUREMENT_ID
 };
 
 // เริ่มต้น Firebase
