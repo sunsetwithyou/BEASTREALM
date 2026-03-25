@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { auth } from "../firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
 
 const FacebookIcon = () => (
   <svg viewBox="0 0 24 24" className="w-8 h-8" fill="#1877F2">
@@ -21,30 +23,32 @@ const GoogleIcon = () => (
     <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
   </svg>
 );
+
 export default function Login({ setIsAuthenticated }) {
-  const [username, setUsername] = useState('');
+  const navigate = useNavigate();
+  
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setLoading(true); setError('');
+    setLoading(true); 
+    setError('');
+    
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        localStorage.setItem('token', data.token);
-        setIsAuthenticated(true);
-      } else {
-        setError('Invalid credentials');
-      }
-    } catch {
-      setError('Connection error. Please try again.');
+    
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
+      
+      if (setIsAuthenticated) setIsAuthenticated(true);
+      
+      alert("เข้าสู่ระบบสำเร็จ ลุยเลย!");
+      navigate('/game'); 
+
+    } catch (err) {
+      setError('รหัสผ่านไม่ถูกต้อง');
     }
     setLoading(false);
   };
@@ -95,10 +99,10 @@ export default function Login({ setIsAuthenticated }) {
           {/* Form */}
           <form onSubmit={handleLogin} className="flex flex-col gap-4 w-full max-w-[360px]">
             <input
-              type="text"
-              placeholder="email/username"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
+              type="email"
+              placeholder="email address"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
               required
               className="input-field w-full border-2 border-black rounded-full px-6 py-[0.75rem] text-[0.95rem] outline-none placeholder-gray-400 focus:border-gray-500 transition-colors bg-white"
             />
@@ -120,7 +124,7 @@ export default function Login({ setIsAuthenticated }) {
               disabled={loading}
               className="beast-btn w-full bg-black text-white rounded-full py-[0.85rem] text-2xl tracking-[0.2em] hover:bg-gray-900 active:scale-[0.97] transition-all mt-2 disabled:opacity-50"
             >
-              {loading ? '...' : 'login'}
+              {loading ? '...' : 'LOGIN'}
             </button>
           </form>
 

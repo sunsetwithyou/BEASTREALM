@@ -1,8 +1,8 @@
-// นำเข้าคำสั่งที่จำเป็น
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+// 👇 นำเข้า Auth เพิ่มเติม
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 
-// ค่าตั้งค่า Firebase ของคุณ (ผมดึงมาจากที่คุณส่งให้เมื่อกี้)
 const firebaseConfig = {
   apiKey: "AIzaSyBlFZBi7MQWRl7uZZGrZPlTKmL559GN6mU",
   authDomain: "beastrealm-5a869.firebaseapp.com",
@@ -13,8 +13,7 @@ const firebaseConfig = {
   measurementId: "G-KW7816QMR3"
 };
 
-// เริ่มต้นการทำงาน Firebase
 const app = initializeApp(firebaseConfig);
-
-// ส่งออกตัวแปร db เพื่อให้ไฟล์เกม (App.jsx) เรียกใช้ได้
-export const db = getFirestore(app);
+const db = getFirestore(app);
+// 👇 ประกาศใช้งานตัวแปร auth
+export const auth = getAuth(app);

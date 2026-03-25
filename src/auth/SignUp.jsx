@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { auth } from "../firebase";
+import { createUserWithEmailAndPassword } from "firebase/auth";
 
 const FacebookIcon = () => (
   <svg viewBox="0 0 24 24" className="w-8 h-8" fill="#1877F2">
@@ -23,32 +25,40 @@ const GoogleIcon = () => (
 );
 
 export default function SignUp({ setIsAuthenticated }) {
-  const [username, setUsername]               = useState('');
+  // ✅ 1. ย้าย navigate เข้ามาไว้ข้างในนี้
+  const navigate = useNavigate(); 
+  
+  // ✅ 2. เปลี่ยนชื่อ state เป็น email ให้ตรงกับการทำงานของ Firebase
+  const [email, setEmail]                     = useState(''); 
   const [password, setPassword]               = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError]                     = useState('');
   const [loading, setLoading]                 = useState(false);
 
+  // ✅ 3. ใช้ระบบสมัครของ Firebase แบบเต็มรูปแบบ
   const handleSignUp = async (e) => {
     e.preventDefault();
-    if (password !== confirmPassword) { setError('Passwords do not match'); return; }
-    setLoading(true); setError('');
+    if (password !== confirmPassword) { 
+      setError('Passwords do not match'); 
+      return; 
+    }
+    
+    setLoading(true); 
+    setError('');
+    
     try {
-      const res = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        localStorage.setItem('token', data.token);
-        setIsAuthenticated(true);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        setError(data.message || 'Sign up failed');
-      }
-    } catch {
-      setError('Connection error. Please try again.');
+      // โค้ดส่งข้อมูลไปสร้าง User ใน Firebase
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // ถ้ามี function ควบคุมการเข้าระบบ ก็ให้ทำงาน
+      if (setIsAuthenticated) setIsAuthenticated(true);
+      
+      alert("สมัครสมาชิกสำเร็จ!");
+      navigate('/login'); // เด้งไปหน้า Login อัตโนมัติ
+
+    } catch (err) {
+      // จัดการ Error (เช่น อีเมลซ้ำ, รหัสผ่านสั้นไป)
+      setError(err.message);
     }
     setLoading(false);
   };
@@ -91,7 +101,7 @@ export default function SignUp({ setIsAuthenticated }) {
 
           {/* Header */}
           <div className="flex items-center gap-3 mb-10 justify-center">
-            <h1 className="beast-title text-black leading-none" style={{ fontSize: '4.5rem' }}>SIGN IN</h1>
+            <h1 className="beast-title text-black leading-none" style={{ fontSize: '4.5rem' }}>SIGN UP</h1>
             <div className="w-16 h-16 mb-1">
               <img src="src/Photo/logo rm.png" alt="Your Custom Logo" className="w-full h-auto" />
             </div>
@@ -100,19 +110,20 @@ export default function SignUp({ setIsAuthenticated }) {
           {/* Form */}
           <form onSubmit={handleSignUp} className="flex flex-col gap-4 w-full max-w-[360px]">
             <input
-              type="text"
-              placeholder="email/username"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
+              type="email"
+              placeholder="email address"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
               required
               className="input-field w-full border-2 border-black rounded-full px-6 py-[0.75rem] text-[0.95rem] outline-none placeholder-gray-400 focus:border-gray-500 transition-colors bg-white"
             />
             <input
               type="password"
-              placeholder="password"
+              placeholder="password (min 6 characters)"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
+              minLength={6}
               className="input-field w-full border-2 border-black rounded-full px-6 py-[0.75rem] text-[0.95rem] outline-none placeholder-gray-400 focus:border-gray-500 transition-colors bg-white"
             />
             <input
@@ -121,6 +132,7 @@ export default function SignUp({ setIsAuthenticated }) {
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
               required
+              minLength={6}
               className="input-field w-full border-2 border-black rounded-full px-6 py-[0.75rem] text-[0.95rem] outline-none placeholder-gray-400 focus:border-gray-500 transition-colors bg-white"
             />
 
@@ -133,7 +145,7 @@ export default function SignUp({ setIsAuthenticated }) {
               disabled={loading}
               className="beast-btn w-full bg-black text-white rounded-full py-[0.85rem] text-2xl tracking-[0.2em] hover:bg-gray-900 active:scale-[0.97] transition-all mt-2 disabled:opacity-50"
             >
-              {loading ? '...' : 'login'}
+              {loading ? '...' : 'SIGN UP'}
             </button>
           </form>
 
