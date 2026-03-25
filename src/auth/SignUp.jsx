@@ -95,7 +95,7 @@ export default function SignUp({ setIsAuthenticated }) {
           />
           <div className="relative z-10 flex flex-col items-center gap-4 select-none px-12">
             <div className="w-56 h-64">
-              <img src="/src/Photo/black cut.jpg" alt="Your Custom Logo" className="w-full h-auto" />
+              <img src="/Photo/black cut.jpg" alt="Your Custom Logo" className="w-full h-auto" />
             </div>
           </div>
         </div>
@@ -107,14 +107,14 @@ export default function SignUp({ setIsAuthenticated }) {
         >
           {/* mobile logo */}
           <div className="md:hidden absolute top-8 left-8 w-12 h-12">
-            <img src="src/Photo/logo rm.png" alt="Your Custom Logo" className="w-full h-auto" />
+            <img src="/Photo/logo rm.png" alt="Your Custom Logo" className="w-full h-auto" />
           </div>
 
           {/* Header */}
           <div className="flex items-center gap-3 mb-10 justify-center">
             <h1 className="beast-title text-black leading-none" style={{ fontSize: '4.5rem' }}>SIGN UP</h1>
             <div className="w-16 h-16 mb-1">
-              <img src="src/Photo/logo rm.png" alt="Your Custom Logo" className="w-full h-auto" />
+              <img src="/Photo/logo rm.png" alt="Your Custom Logo" className="w-full h-auto" />
             </div>
           </div>
 
