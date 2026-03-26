@@ -366,20 +366,29 @@ const CardGamePrototype = () => {
   };
 
   const joinRoom = async () => {
-    if (!inputRoomId) return alert("กรุณาใส่รหัสห้อง");
-    setLoading(true);
-    const roomRef = doc(db, "games", inputRoomId.toUpperCase());
-    try {
-      const roomSnap = await getDoc(roomRef);
-      if (roomSnap.exists()) {
-        const data = roomSnap.data();
-        if (data.dice.status !== 'waiting' && data.player2.isOnline) { alert('ห้องเต็ม!'); setLoading(false); return; }
-        setRoomId(inputRoomId.toUpperCase()); setMyPlayerId('player2'); 
-        await updateDoc(roomRef, { message: "ผู้เล่นครบแล้ว! ทอยลูกเต๋าหาคนเริ่มก่อน...", dice: { ...data.dice, status: 'ready' }, player2: { ...data.player2, isOnline: true } });
-      } else { alert("ไม่พบห้องนี้!"); }
-    } catch (error) { alert("Error joining room"); }
-    setLoading(false);
-  };
+  if (!inputRoomId) return alert("กรุณาใส่รหัสห้อง");
+  setLoading(true);
+  const roomRef = doc(db, "games", inputRoomId.toUpperCase());
+  try {
+    const roomSnap = await getDoc(roomRef);
+    if (roomSnap.exists()) {
+      const data = roomSnap.data();
+      if (data.dice.status !== 'waiting' && data.player2.isOnline) { 
+        alert('ห้องเต็ม!'); 
+        setLoading(false); 
+        return; 
+      }
+      setRoomId(inputRoomId.toUpperCase()); 
+      setMyPlayerId('player2'); 
+      await updateDoc(roomRef, { message: "ผู้เล่นครบแล้ว! ทอยลูกเต๋าหาคนเริ่มก่อน...", dice: { ...data.dice, status: 'ready' }, player2: { ...data.player2, isOnline: true } });
+    } else { 
+      alert("ไม่พบห้องนี้!"); 
+    }
+  } catch (error) { 
+    alert("Error joining room"); 
+  }
+  setLoading(false);
+};
   
   useEffect(() => {
     if (!roomId) return;
@@ -548,33 +557,42 @@ const CardGamePrototype = () => {
   // *** MODIFY: Add Animation Delay to attackCard ***
   const attackCard = (targetCard, targetPlayer) => {
     if (gameState.winner || !localAttackingCard) return;
-    if (targetCard.type !== 'unit' || targetPlayer === myPlayerId) return; 
-    
-    // *** FIX: Check if opponent has OTHER defenders we must hit first ***
+    if (targetCard.type !== 'unit' || targetPlayer === myPlayerId) return;
+
     const hasOtherDefender = gameState[targetPlayer].field.units.some(u => isCardDefender(u) && u.id !== targetCard.id);
     if (hasOtherDefender && !isCardDefender(targetCard)) return alert('ต้องตี Defender ก่อน!');
 
     const attacker = localAttackingCard;
     const attackerPlayer = gameState.currentTurn;
-    
+
     setAttackingId(attacker.id);
 
     setTimeout(() => {
         const attackerStats = getBuffedStats(attacker, gameState.fieldEffect, attackerPlayer);
         const targetStats = getBuffedStats(targetCard, gameState.fieldEffect, targetPlayer);
 
-        const newTargetHp = targetStats.hp - attackerStats.attack; 
+        const newTargetHp = targetStats.hp - attackerStats.attack;
 
-        const newState = { ...gameState, 
+        // ตรวจสอบการ์ดกับดักที่อาจทำงาน
+        const trapCard = gameState[targetPlayer].field.traps.find(c => c.type === 'trap');
+        if (trapCard) {
+            const trapEffect = trapCard.effect === 'damage_player' ? trapCard.attack : 0;
+            newTargetHp -= trapEffect;
+            newState.message = `กับดักทำงาน! สวนกลับ ${trapEffect} ดาเมจ!`;
+        }
+
+        const newState = {
+            ...gameState,
             [attackerPlayer]: { ...gameState[attackerPlayer], field: { ...gameState[attackerPlayer].field, units: gameState[attackerPlayer].field.units.map(c => c.id === attacker.id ? { ...c, canAttack: false } : c) } },
             [targetPlayer]: { ...gameState[targetPlayer], field: { ...gameState[targetPlayer].field, units: newTargetHp > 0 ? gameState[targetPlayer].field.units.map(c => c.id === targetCard.id ? { ...c, hp: newTargetHp } : c) : gameState[targetPlayer].field.units.filter(c => c.id !== targetCard.id) } },
-            message: `${attacker.name} (${attackerStats.attack}) โจมตี ${targetCard.name}!` };
-        
+            message: `${attacker.name} (${attackerStats.attack}) โจมตี ${targetCard.name}!`
+        };
+
         saveGame(newState);
-        setLocalAttackingCard(null); 
+        setLocalAttackingCard(null);
         setAttackingId(null);
     }, 400);
-  };
+};
 
   // *** MODIFY: Add Animation Delay to attackPlayer ***
   const attackPlayer = (targetPlayer) => {
@@ -990,7 +1008,7 @@ const CardGamePrototype = () => {
         {showRules && (
           <div className="fixed bottom-20 right-6 bg-slate-800/95 backdrop-blur-md text-slate-200 p-5 rounded-2xl shadow-2xl border border-slate-600 max-w-xs z-40">
              <h3 className="font-bold text-lg text-white mb-3">วิธีเล่น</h3>
-             <ul className="text-xs space-y-2 text-slate-300"><li>• Unit Atk 0 (Defender) ตีไม่ได้</li><li>• Unit ตี Unit ฟรี (เลือดเราไม่ลด)</li><li>• Trap/Spell ในสนามถูกซ่อน</li><li>• การ์ดในมือสูงสุด 5 ใบ</li><li>• Energy สูงสุด 10 หน่วย</li></ul>
+             <ul className="text-xs space-y-2 text-slate-300"><li>• ฝ่ายที่เริ่มก่อนจะไม่สามารถโจมตีผู้เล่นฝั่งตรงข้ามได้ </li><li>• การ์ดที่มีค่า ATK เป็น 0 ถึงแม้ว่าจะใช้การ์ดเพิ่มค่าโจมตีเป็น 1 ก็จะไม่สามารถโจมตีได้ </li><li>• ถ้าหาก unit โจมตี unit ค่าพลังชีวิตของผู้เล่นจะไม่ลดลง </li><li>• ฝั่งตรงข้ามไม่สามารถมองเห็นการ์ดบน Trap Zone ของผู้เล่น </li><li>• การ์ดในมือผู้เล่นสามารถมีสูงสุดได้ 5 ใบ</li><li>• Energy ของผู้เล่นจะมีสูงสุด 10/10 หน่วย</li></ul>
           </div>
         )}
     </div>
