@@ -556,9 +556,10 @@ const CardGamePrototype = () => {
 
   // *** MODIFY: Add Animation Delay to attackCard ***
   const attackCard = (targetCard, targetPlayer) => {
-    if (gameState.winner || !localAttackingCard) return;
-    if (targetCard.type !== 'unit' || targetPlayer === myPlayerId) return;
+    if (gameState.winner || !localAttackingCard) return; 
+    if (targetCard.type !== 'unit' || targetPlayer === myPlayerId) return; 
 
+    // เช็คว่า Defender ต้องตีการ์ด Defender ก่อน
     const hasOtherDefender = gameState[targetPlayer].field.units.some(u => isCardDefender(u) && u.id !== targetCard.id);
     if (hasOtherDefender && !isCardDefender(targetCard)) return alert('ต้องตี Defender ก่อน!');
 
@@ -571,28 +572,42 @@ const CardGamePrototype = () => {
         const attackerStats = getBuffedStats(attacker, gameState.fieldEffect, attackerPlayer);
         const targetStats = getBuffedStats(targetCard, gameState.fieldEffect, targetPlayer);
 
-        const newTargetHp = targetStats.hp - attackerStats.attack;
+        let newTargetHp = targetStats.hp - attackerStats.attack;
 
         // ตรวจสอบการ์ดกับดักที่อาจทำงาน
         const trapCard = gameState[targetPlayer].field.traps.find(c => c.type === 'trap');
         if (trapCard) {
             const trapEffect = trapCard.effect === 'damage_player' ? trapCard.attack : 0;
-            newTargetHp -= trapEffect;
+            newTargetHp -= trapEffect; // ลด HP จากการสวนกลับของกับดัก
             newState.message = `กับดักทำงาน! สวนกลับ ${trapEffect} ดาเมจ!`;
         }
 
+        // เช็คว่า HP ของการ์ดที่ถูกโจมตียังคงเหลืออยู่หรือไม่
         const newState = {
             ...gameState,
-            [attackerPlayer]: { ...gameState[attackerPlayer], field: { ...gameState[attackerPlayer].field, units: gameState[attackerPlayer].field.units.map(c => c.id === attacker.id ? { ...c, canAttack: false } : c) } },
-            [targetPlayer]: { ...gameState[targetPlayer], field: { ...gameState[targetPlayer].field, units: newTargetHp > 0 ? gameState[targetPlayer].field.units.map(c => c.id === targetCard.id ? { ...c, hp: newTargetHp } : c) : gameState[targetPlayer].field.units.filter(c => c.id !== targetCard.id) } },
+            [attackerPlayer]: { 
+                ...gameState[attackerPlayer], 
+                field: { 
+                    ...gameState[attackerPlayer].field, 
+                    units: gameState[attackerPlayer].field.units.map(c => c.id === attacker.id ? { ...c, canAttack: false } : c) 
+                } 
+            },
+            [targetPlayer]: { 
+                ...gameState[targetPlayer], 
+                field: { 
+                    ...gameState[targetPlayer].field, 
+                    units: newTargetHp > 0 ? gameState[targetPlayer].field.units.map(c => c.id === targetCard.id ? { ...c, hp: newTargetHp } : c) : gameState[targetPlayer].field.units.filter(c => c.id !== targetCard.id) 
+                }
+            },
             message: `${attacker.name} (${attackerStats.attack}) โจมตี ${targetCard.name}!`
         };
 
         saveGame(newState);
-        setLocalAttackingCard(null);
-        setAttackingId(null);
+        setLocalAttackingCard(null);  // รีเซ็ตการ์ดที่โจมตี
+        setAttackingId(null);  // รีเซ็ต ID ของการโจมตี
     }, 400);
 };
+
 
   // *** MODIFY: Add Animation Delay to attackPlayer ***
   const attackPlayer = (targetPlayer) => {
