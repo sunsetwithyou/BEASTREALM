@@ -557,7 +557,7 @@ const CardGamePrototype = () => {
   // *** MODIFY: Add Animation Delay to attackCard ***
   const attackCard = (targetCard, targetPlayer) => {
     if (gameState.winner || !localAttackingCard) return; 
-    if (targetCard.type !== 'unit' || targetPlayer === myPlayerId) return; 
+    if (targetCard.type !== 'unit' || targetPlayer === myPlayerId) return;
 
     // เช็คว่า Defender ต้องตีการ์ด Defender ก่อน
     const hasOtherDefender = gameState[targetPlayer].field.units.some(u => isCardDefender(u) && u.id !== targetCard.id);
@@ -578,11 +578,11 @@ const CardGamePrototype = () => {
         const trapCard = gameState[targetPlayer].field.traps.find(c => c.type === 'trap');
         if (trapCard) {
             const trapEffect = trapCard.effect === 'damage_player' ? trapCard.attack : 0;
-            newTargetHp -= trapEffect; // ลด HP จากการสวนกลับของกับดัก
+            newTargetHp -= trapEffect; // ลด HP ของการ์ดจากการสวนกลับของกับดัก
             newState.message = `กับดักทำงาน! สวนกลับ ${trapEffect} ดาเมจ!`;
         }
 
-        // เช็คว่า HP ของการ์ดที่ถูกโจมตียังคงเหลืออยู่หรือไม่
+        // อัปเดตสถานะหลังการโจมตี
         const newState = {
             ...gameState,
             [attackerPlayer]: { 
@@ -609,43 +609,65 @@ const CardGamePrototype = () => {
 };
 
 
-  // *** MODIFY: Add Animation Delay to attackPlayer ***
-  const attackPlayer = (targetPlayer) => {
-    if (gameState.winner || !localAttackingCard) return;
-    if (targetPlayer === myPlayerId) { setLocalAttackingCard(null); return; }
-    const opponent = targetPlayer;
-    
-    // *** FIX: ต้องกำจัด Unit ทั้งหมดก่อนถึงจะตีหน้าได้ (Strict Rule) ***
-    // ไม่ว่าจะมี Defender หรือไม่ ถ้ามี Unit อยู่ก็ตีหน้าไม่ได้
-    if (gameState[opponent].field.units.length > 0) return alert('ต้องกำจัด Unit ฝ่ายตรงข้ามให้หมดก่อน!');
+  // AttackCard 
+const AttackCard = (targetCard, targetPlayer) => {
+    if (gameState.winner || !localAttackingCard) return; 
+    if (targetCard.type !== 'unit' || targetPlayer === myPlayerId) return;
+
+    // เช็คการ์ด DEFENDER ต้องตีการ์ด DEFENDER ก่อน
+    const hasOtherDefender = gameState[targetPlayer].field.units.some(u => isCardDefender(u) && u.id !== targetCard.id);
+    if (hasOtherDefender && !isCardDefender(targetCard)) {
+        return alert('ต้องตี Defender ก่อน!');
+    }
 
     const attacker = localAttackingCard;
     const attackerPlayer = gameState.currentTurn;
-    
+
+    // Set attacking ID for UI update (แสดงแอนิเมชั่นโจมตี)
     setAttackingId(attacker.id);
 
     setTimeout(() => {
         const attackerStats = getBuffedStats(attacker, gameState.fieldEffect, attackerPlayer);
-        const defenderTraps = gameState[opponent].field.traps;
-        const trapIndex = defenderTraps.findIndex(c => c.type === 'trap');
-        let newState = { ...gameState };
+        const targetStats = getBuffedStats(targetCard, gameState.fieldEffect, targetPlayer);
 
-        if (trapIndex !== -1) {
-            const trapCard = defenderTraps[trapIndex];
-            const newAttackerHp = attacker.hp - trapCard.attack;
-            newState[opponent].field.traps = defenderTraps.filter(c => c.id !== trapCard.id);
-            newState[attackerPlayer].field.units = newState[attackerPlayer].field.units.map(c => c.id === attacker.id ? (newAttackerHp > 0 ? { ...c, hp: newAttackerHp, canAttack: false } : null) : c).filter(c => c !== null);
-            newState.message = `กับดักทำงาน! สวนกลับ ${trapCard.attack} ดาเมจ!`;
-        } else {
-            newState[opponent].hp = Math.max(0, newState[opponent].hp - attackerStats.attack);
-            newState[attackerPlayer].field.units = newState[attackerPlayer].field.units.map(c => c.id === attacker.id ? { ...c, canAttack: false } : c);
-            newState.message = `${attacker.name} โจมตีผู้เล่น! -${attackerStats.attack} HP`;
+        let newTargetHp = targetStats.hp - attackerStats.attack;
+
+        // ตรวจสอบการ์ดกับดักที่อาจทำงาน
+        const trapCard = gameState[targetPlayer].field.traps.find(c => c.type === 'trap');
+        if (trapCard) {
+            const trapEffect = trapCard.effect === 'damage_player' ? trapCard.attack : 0;
+            newTargetHp -= trapEffect; // ลด HP จากการสวนกลับของกับดัก
+            newState.message = `กับดักทำงาน! สวนกลับ ${trapEffect} ดาเมจ!`;
         }
+
+        // อัปเดตสถานะหลังการโจมตี
+        const newState = {
+            ...gameState,
+            [attackerPlayer]: {
+                ...gameState[attackerPlayer],
+                field: {
+                    ...gameState[attackerPlayer].field,
+                    units: gameState[attackerPlayer].field.units.map(c => c.id === attacker.id ? { ...c, canAttack: false } : c)
+                }
+            },
+            [targetPlayer]: {
+                ...gameState[targetPlayer],
+                field: {
+                    ...gameState[targetPlayer].field,
+                    units: newTargetHp > 0 ?
+                        gameState[targetPlayer].field.units.map(c => c.id === targetCard.id ? { ...c, hp: newTargetHp } : c) :
+                        gameState[targetPlayer].field.units.filter(c => c.id !== targetCard.id)
+                }
+            },
+            message: `${attacker.name} (${attackerStats.attack}) โจมตี ${targetCard.name}!`
+        };
+
+        // บันทึกสถานะใหม่หลังการโจมตี
         saveGame(newState);
-        setLocalAttackingCard(null);
-        setAttackingId(null); 
+        setLocalAttackingCard(null);  // รีเซ็ตการ์ดที่โจมตี
+        setAttackingId(null);  // รีเซ็ต ID ของการโจมตี
     }, 400);
-  };
+};
 
   const endTurn = () => {
     if (gameState.winner || gameState.currentTurn !== myPlayerId) return;
@@ -669,7 +691,7 @@ const CardGamePrototype = () => {
     const calculatedMaxEnergy = Math.min(10, 2 + newTurnNumber);
     const newState = { ...gameState, currentTurn: nextPlayer, turnNumber: newTurnNumber, hasDrawnThisTurn: false, 
         [nextPlayer]: { ...gameState[nextPlayer], maxEnergy: calculatedMaxEnergy, energy: calculatedMaxEnergy, 
-            field: { units: gameState[nextPlayer].field.units.map(c => ({ ...c, canAttack: true })), traps: gameState[nextPlayer].field.traps } },
+            field: { units: gameState[nextPlayer].field.units.map(c => ({ ...c, canAttack: false })), traps: gameState[nextPlayer].field.traps } },
         message: `เปลี่ยนเทิร์นเป็น ${nextPlayer === 'player1' ? 'P1' : 'P2'} (Round ${newTurnNumber})` };
     saveGame(newState);
   };
