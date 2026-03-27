@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Shield, Zap, Heart, Swords, Plus, Ban, X, HelpCircle, Clock, AlertTriangle, Copy, RotateCcw, Dice6, HandCoins, Minus, Loader2, MinusSquare, Skull, Trash2, Map } from 'lucide-react'; 
+import { Shield, Zap, Heart, Swords, Plus, Ban, X, HelpCircle, Clock, AlertTriangle, Copy, RotateCcw, Dice6, HandCoins, Minus, Loader2, MinusSquare, Skull, Trash2, Map, Trash } from 'lucide-react'; 
 
 // *** 1. Firebase Connection ***
 import { initializeApp } from "firebase/app";
@@ -15,7 +15,6 @@ const firebaseConfig = {
   measurementId: "G-KW7816QMR3"
 };
 
-// เริ่มต้น Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
@@ -25,10 +24,8 @@ const generateCardImage = (name, type) => {
     return `https://placehold.co/400x300/2e1065/FFFFFF.png?text=${name.replace(/\s/g, '+')}&font=roboto`;
 };
 
-// *** Helper: Check if card is Defender ***
 const isCardDefender = (card) => {
     if (!card) return false;
-    // เป็น Defender ถ้ามี keyword ใน description หรือ attack เป็น 0
     return (card.description && card.description.includes('DEFENDER')) || card.attack === 0;
 };
 
@@ -98,9 +95,10 @@ const CardGamePrototype = () => {
   const [copied, setCopied] = useState(false); 
   const [isVsAI, setIsVsAI] = useState(false);
   
-  // *** NEW STATE FOR ANIMATION ***
-  const [attackingId, setAttackingId] = useState(null); // เก็บ ID การ์ดที่กำลังพุ่งชน
-  const isAIProcessing = useRef(false); // *** FIX: AI Lock ***
+  // *** NEW STATE FOR ANIMATION & DISCARD ***
+  const [attackingId, setAttackingId] = useState(null); 
+  const [discardCount, setDiscardCount] = useState(0); // นับจำนวนการ์ดที่ต้องทิ้ง
+  const isAIProcessing = useRef(false); 
 
   // --- Helpers & Logic ---
   const generateRandomHand = (count, startId, requiredTribe) => {
@@ -167,7 +165,7 @@ const CardGamePrototype = () => {
 
         await new Promise(resolve => setTimeout(resolve, 1500));
         
-        // 👇 เพิ่มลอจิกการจั่วการ์ดของ AI ตรงนี้ 
+        // --- 1. จั่วการ์ด ---
         if (!newState.hasDrawnThisTurn && newState.player2.deck > 0 && newState.player2.hand.length < 6) {
             const currentDeckList = newState.player2.deckList || [];
             if (currentDeckList.length > 0) {
@@ -179,150 +177,177 @@ const CardGamePrototype = () => {
                 newState.hasDrawnThisTurn = true;
                 newState.message = "AI จั่วการ์ด!";
                 
-                // บันทึกสถานะว่าจั่วไพ่แล้ว แล้วรอแปบนึงให้เห็นแอนิเมชัน
                 await saveGame(newState);
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }
                
-        // 1. Play Card Logic (AI Loop)
-        let isPlayingCards = true;
-        while (isPlayingCards) {
-            // คัดกรองการ์ดในมือที่ AI "สามารถจ่ายค่าคอสต์ได้" และ "มีที่ว่างในสนาม"
+        // --- 2. Action Loop ---
+        let hasActionsLeft = true;
+        while (hasActionsLeft && !newState.winner && newState.player1.hp > 0 && newState.player2.hp > 0) {
+            hasActionsLeft = false;
+
             const playableCards = newState.player2.hand.filter(c => {
                 if (c.cost > newState.player2.energy) return false;
-                
-                // เช็คพื้นที่ก่อนลง
                 const isTrapOrSpell = c.type === 'spell' || c.type === 'trap';
                 const isUnit = c.type === 'unit';
                 const isSummonSpell = c.effect === 'summon_from_deck';
                 
-                // ข้ามการ์ดกับดักถ้าสล็อตเต็ม 3 (แต่เวทย์มนต์ใช้แล้วทิ้งใช้ได้)
                 if (isTrapOrSpell && !['field_buff', 'summon_from_deck', 'heal_player', 'damage_player'].includes(c.effect) && newState.player2.field.traps.length >= 3) return false;
-                
-                // ข้ามยูนิตถ้าสล็อตเต็ม 5
                 if (isUnit && newState.player2.field.units.length >= 5) return false;
                 if (isSummonSpell && newState.player2.field.units.length >= 5) return false;
-                
                 return true;
             });
 
-            if (playableCards.length > 0) {
-                // AI เล่นการ์ดที่แพงที่สุดก่อน (ให้เรียงจากคอสต์มากไปน้อย)
-                playableCards.sort((a, b) => b.cost - a.cost);
-                const cardToPlay = playableCards[0];
-                const cardIndexInHand = newState.player2.hand.findIndex(c => c.id === cardToPlay.id);
-                
-                if (cardToPlay.type === 'spell' || cardToPlay.type === 'trap') {
-                   if (cardToPlay.effect === 'field_buff') {
-                       newState.fieldEffect = { ...cardToPlay.effectConfig, ownerId: 'player2' };
-                       newState.message = `AI ใช้ Field: ${cardToPlay.name}`;
-                   } else if (cardToPlay.effect === 'summon_from_deck') {
-                       const token = { ...cardTemplates[0], id: Math.random(), canAttack: false };
-                       newState.player2.field.units.push(token);
-                       newState.message = `AI อัญเชิญ ${token.name} จากกอง!`;
-                   } else if (cardToPlay.effect === 'heal_player') {
-                       newState.player2.hp = Math.min(20, newState.player2.hp + (cardToPlay.effectValue || 5));
-                       newState.message = `AI ใช้การ์ดเพิ่ม HP ${cardToPlay.effectValue || 5} หน่วย`;
-                   } else if (cardToPlay.effect === 'damage_player') {
-                       newState.player1.hp = Math.max(0, newState.player1.hp - (cardToPlay.effectValue || cardToPlay.attack));
-                       newState.message = `AI ยิงสกิลใส่คุณ ${cardToPlay.effectValue || cardToPlay.attack} ดาเมจ!`;
-                   } else {
-                       newState.player2.field.traps.push({ ...cardToPlay, canAttack: false });
-                       newState.message = `AI หมอบการ์ดไว้ 1 ใบ`;
-                   }
-                } else {
-                    const canAttack = newState.turnNumber >= 2;
-                    newState.player2.field.units.push({ ...cardToPlay, canAttack });
-                    newState.message = `AI ลง ${cardToPlay.name}`;
+            // AI โจมตีได้ทุกตัวไม่ต้องสนใจ ATK 0
+            const readyUnits = newState.player2.field.units.filter(u => u.canAttack);
+
+            if (playableCards.length > 0 || readyUnits.length > 0) {
+                hasActionsLeft = true; 
+                let actionType = 'play';
+                if (playableCards.length > 0 && readyUnits.length > 0) {
+                    actionType = Math.random() > 0.5 ? 'attack' : 'play';
+                } else if (readyUnits.length > 0) {
+                    actionType = 'attack';
                 }
-                
-                newState.player2.energy -= cardToPlay.cost;
-                newState.player2.hand.splice(cardIndexInHand, 1);
-                
-                await saveGame(newState);
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            } else {
-                isPlayingCards = false; // จบลูปถ้าไม่เหลือการ์ดที่เล่นได้
+
+                if (actionType === 'play') {
+                    playableCards.sort((a, b) => b.cost - a.cost);
+                    const cardToPlay = playableCards[0];
+                    const cardIndexInHand = newState.player2.hand.findIndex(c => c.id === cardToPlay.id);
+                    
+                    if (cardToPlay.type === 'spell' || cardToPlay.type === 'trap') {
+                       if (cardToPlay.effect === 'field_buff') {
+                           if (newState.fieldSpellCard) {
+                               newState[newState.fieldSpellCard.ownerId].graveyard = newState[newState.fieldSpellCard.ownerId].graveyard || [];
+                               newState[newState.fieldSpellCard.ownerId].graveyard.push(newState.fieldSpellCard);
+                           }
+                           newState.fieldEffect = { ...cardToPlay.effectConfig, ownerId: 'player2' };
+                           newState.fieldSpellCard = { ...cardToPlay, ownerId: 'player2' };
+                           newState.message = `AI ใช้งาน Field: ${cardToPlay.name}`;
+                       } else if (cardToPlay.effect === 'summon_from_deck') {
+                           const dogTemplate = cardTemplates.find(c => c.tribe === 'Dog' && c.type === 'unit') || cardTemplates[0];
+                           const token = { ...dogTemplate, id: newState.cardIdCounter++, canAttack: false };
+                           newState.player2.field.units.push(token);
+                           newState.player2.graveyard = newState.player2.graveyard || [];
+                           newState.player2.graveyard.push(cardToPlay);
+                           newState.message = `AI เสก ${token.name} ลงสนาม!`;
+                       } else if (cardToPlay.effect === 'heal_player') {
+                           newState.player2.hp = Math.min(20, newState.player2.hp + (cardToPlay.effectValue || 5));
+                           newState.player2.graveyard = newState.player2.graveyard || [];
+                           newState.player2.graveyard.push(cardToPlay);
+                           newState.message = `AI ฮีลตัวเอง ${cardToPlay.effectValue || 5} หน่วย`;
+                       } else if (cardToPlay.effect === 'damage_player') {
+                           newState.player1.hp = Math.max(0, newState.player1.hp - (cardToPlay.effectValue || cardToPlay.attack));
+                           newState.player2.graveyard = newState.player2.graveyard || [];
+                           newState.player2.graveyard.push(cardToPlay);
+                           newState.message = `AI ยิงสกิลใส่คุณ ${cardToPlay.effectValue || cardToPlay.attack} ดาเมจ!`;
+                       } else {
+                           newState.player2.field.traps.push({ ...cardToPlay, canAttack: false });
+                           newState.message = `AI หมอบการ์ดกับดัก!`;
+                       }
+                    } else {
+                        const canAttack = newState.turnNumber >= 2;
+                        newState.player2.field.units.push({ ...cardToPlay, canAttack });
+                        newState.message = `AI ส่ง ${cardToPlay.name} ลงสนาม!`;
+                    }
+                    
+                    newState.player2.energy -= cardToPlay.cost;
+                    newState.player2.hand.splice(cardIndexInHand, 1);
+                    
+                    await saveGame(newState);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                } 
+                else if (actionType === 'attack') {
+                    const attacker = readyUnits[0];
+                    setAttackingId(attacker.id);
+                    await new Promise(resolve => setTimeout(resolve, 400));
+
+                    const attackerStats = getBuffedStats(attacker, newState.fieldEffect, 'player2');
+                    const targets = newState.player1.field.units;
+                    
+                    let battleMsg = "";
+                    let attackerNewHp = newState.player2.hp;
+
+                    // เช็คกับดัก
+                    let p1Traps = newState.player1.field.traps;
+                    const triggeredTrap = p1Traps.find(c => c.type === 'trap');
+
+                    if (triggeredTrap) {
+                        const trapDmg = triggeredTrap.attack || 0;
+                        attackerNewHp -= trapDmg; 
+                        p1Traps = p1Traps.filter(t => t.id !== triggeredTrap.id); 
+                        newState.player1.graveyard = newState.player1.graveyard || [];
+                        newState.player1.graveyard.push(triggeredTrap); // กับดักลงหลุม
+                        battleMsg = `กับดักของคุณทำงาน! สวน AI กลับ ${trapDmg} ดาเมจ! `;
+                        newState.player1.field.traps = p1Traps;
+                    }
+
+                    if (targets.length > 0) {
+                        const defender = targets.find(u => isCardDefender(u));
+                        const target = defender || targets[0]; 
+                        
+                        const targetStats = getBuffedStats(target, newState.fieldEffect, 'player1');
+                        // แก้บั๊กคณิตศาสตร์!
+                        const targetNewBaseHp = target.hp - attackerStats.attack;
+                        const isDead = targetNewBaseHp + (targetStats.hp - target.hp) <= 0;
+                        
+                        if (isDead) {
+                            newState.player1.field.units = newState.player1.field.units.filter(u => u.id !== target.id);
+                            newState.player1.graveyard = newState.player1.graveyard || [];
+                            newState.player1.graveyard.push(target); // การ์ดตายลงหลุม
+                        } else {
+                            newState.player1.field.units = newState.player1.field.units.map(u => u.id === target.id ? { ...u, hp: targetNewBaseHp } : u);
+                        }
+                        
+                        const targetTypeMsg = defender ? 'Defender' : 'Unit';
+                        battleMsg += `AI ${attacker.name} โจมตี ${targetTypeMsg}: ${target.name}!`;
+                    } else {
+                        newState.player1.hp = Math.max(0, newState.player1.hp - attackerStats.attack);
+                        battleMsg += `AI ${attacker.name} โจมตีเข้าผู้เล่นโดยตรง!`;
+                    }
+
+                    newState.player2.hp = Math.max(0, attackerNewHp);
+                    newState.message = battleMsg;
+                     
+                    newState.player2.field.units = newState.player2.field.units.map(u => u.id === attacker.id ? { ...u, canAttack: false } : u);
+                     
+                    setAttackingId(null);
+                    await saveGame(newState);
+                    await new Promise(resolve => setTimeout(resolve, 1200));
+                }
             }
         }
         
-        // 2. Attack Phase (AI Loop)
-        let isAttacking = true;
-        while (isAttacking) {
-            // หายูนิตที่พร้อมโจมตีทั้งหมด
-            const readyUnits = newState.player2.field.units.filter(u => u.canAttack && u.attack > 0);
+        // --- 3. จบเทิร์น AI (ทิ้งการ์ดถ้าเกิน) ---
+        if (!newState.winner && newState.player1.hp > 0 && newState.player2.hp > 0) {
             
-            if (readyUnits.length > 0) {
-                const attacker = readyUnits[0]; // หยิบมาโจมตีทีละตัว
-                
-                setAttackingId(attacker.id);
-                await new Promise(resolve => setTimeout(resolve, 400));
+            // AI ทิ้งการ์ดใบที่ถูกที่สุดถ้าเกิน 5
+            while (newState.player2.hand.length > 5) {
+                newState.player2.hand.sort((a, b) => a.cost - b.cost); 
+                const discarded = newState.player2.hand.shift();
+                newState.player2.graveyard = newState.player2.graveyard || [];
+                newState.player2.graveyard.push(discarded);
+            }
 
-                const attackerStats = getBuffedStats(attacker, newState.fieldEffect, 'player2');
-                const targets = newState.player1.field.units;
-                
-                if (targets.length > 0) {
-                    const defender = targets.find(u => isCardDefender(u));
-                    const target = defender || targets[0]; 
-                    
-                    const targetStats = getBuffedStats(target, newState.fieldEffect, 'player1');
-                    const newTargetHp = targetStats.hp - attackerStats.attack;
-                    
-                    newState.player1.field.units = newTargetHp > 0 
-                        ? newState.player1.field.units.map(u => u.id === target.id ? { ...u, hp: newTargetHp } : u) 
-                        : newState.player1.field.units.filter(u => u.id !== target.id);
-                    
-                    const targetTypeMsg = defender ? 'Defender' : 'Unit';
-                    newState.message = `AI ${attacker.name} โจมตี ${targetTypeMsg}: ${target.name}!`;
-                } else {
-                    newState.player1.hp -= attackerStats.attack;
-                    newState.message = `AI ${attacker.name} โจมตีคุณ!`;
-                }
-                 
-                // รีเซ็ตสถานะ canAttack ของยูนิตที่เพิ่งตีไป จะได้ไม่ลูปตีซ้ำ
-                newState.player2.field.units = newState.player2.field.units.map(u => u.id === attacker.id ? { ...u, canAttack: false } : u);
-                 
-                setAttackingId(null);
-                await saveGame(newState);
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                
-                // เช็คถ้าผู้เล่นตายแล้ว ให้หยุดโจมตีทันที
-                if (newState.player1.hp <= 0) {
-                    isAttacking = false;
-                }
+            const nextPlayer = 'player1';
+            let newTurnNumber = newState.turnNumber;
+            if (newState.startingPlayer) {
+                if (nextPlayer === newState.startingPlayer) newTurnNumber += 1;
             } else {
-                isAttacking = false; // จบลูปถ้าทุกตัวโจมตีครบแล้ว
+                if (newState.currentTurn === 'player2') newTurnNumber += 1;
             }
+            const calculatedMaxEnergy = Math.min(10, 2 + newTurnNumber);
+            newState.currentTurn = nextPlayer;
+            newState.turnNumber = newTurnNumber;
+            newState.hasDrawnThisTurn = false;
+            newState.player1.maxEnergy = calculatedMaxEnergy;
+            newState.player1.energy = calculatedMaxEnergy;
+            newState.player1.field.units = newState.player1.field.units.map(c => ({...c, canAttack: true}));
+            newState.message = `เทิร์นของคุณ (Round ${newTurnNumber})`;
+            
+            await saveGame(newState);
         }
-        // 3. End Turn
-        const nextPlayer = 'player1';
-        let newTurnNumber = newState.turnNumber;
-        
-        // *** FIX: Round Logic - Increment only when turn goes back to startingPlayer ***
-        if (newState.startingPlayer) {
-            if (nextPlayer === newState.startingPlayer) {
-                newTurnNumber += 1;
-            }
-        } else {
-            // Fallback if startingPlayer not set
-            if (newState.currentTurn === 'player2') newTurnNumber += 1;
-        }
-        
-        const calculatedMaxEnergy = Math.min(10, 2 + newTurnNumber);
-        
-        newState.currentTurn = nextPlayer;
-        newState.turnNumber = newTurnNumber;
-        newState.hasDrawnThisTurn = false;
-        
-        newState.player1.maxEnergy = calculatedMaxEnergy;
-        newState.player1.energy = calculatedMaxEnergy;
-        newState.player1.field.units = newState.player1.field.units.map(c => ({...c, canAttack: true}));
-        
-        newState.message = `เทิร์นของคุณ (Round ${newTurnNumber})`;
-        
-        await saveGame(newState);
-
       } catch (error) {
         console.error("AI Error", error);
       } finally {
@@ -335,7 +360,6 @@ const CardGamePrototype = () => {
     const newRoomId = Math.random().toString(36).substring(2, 8).toUpperCase(); 
     const deckSize = 35; 
     const p2Online = vsAI;
-    const p2Tribe = 'Dog';
     
     const createDeck = (tribe) => {
         const list = [];
@@ -350,9 +374,9 @@ const CardGamePrototype = () => {
       turnNumber: 0, currentTurn: null, cardIdCounter: 200, winner: null,
       message: vsAI ? 'โหมด VS AI: กดทอยลูกเต๋าเพื่อเริ่ม...' : 'รอผู้เล่นคนที่ 2 เข้าร่วม...',
       dice: { player1: null, player2: null, status: vsAI ? 'ready' : 'waiting' }, 
-      fieldEffect: null, 
-      player1: { hp: 20, energy: 0, maxEnergy: 3, deck: deckSize, deckList: createDeck('Cat'), hand: generateRandomHand(5, 1, 'Cat'), field: { units: [], traps: [] }, isOnline: true, tribe: 'Cat' },
-      player2: { hp: 20, energy: 0, maxEnergy: 3, deck: deckSize, deckList: createDeck('Dog'), hand: generateRandomHand(5, 10, 'Dog'), field: { units: [], traps: [] }, isOnline: p2Online, tribe: p2Tribe }
+      fieldEffect: null, fieldSpellCard: null,
+      player1: { hp: 20, energy: 0, maxEnergy: 3, deck: deckSize, deckList: createDeck('Cat'), hand: generateRandomHand(5, 1, 'Cat'), field: { units: [], traps: [] }, graveyard: [], isOnline: true, tribe: 'Cat' },
+      player2: { hp: 20, energy: 0, maxEnergy: 3, deck: deckSize, deckList: createDeck('Dog'), hand: generateRandomHand(5, 10, 'Dog'), field: { units: [], traps: [] }, graveyard: [], isOnline: p2Online, tribe: 'Dog' }
     };
     
     try { 
@@ -366,38 +390,31 @@ const CardGamePrototype = () => {
   };
 
   const joinRoom = async () => {
-  if (!inputRoomId) return alert("กรุณาใส่รหัสห้อง");
-  setLoading(true);
-  const roomRef = doc(db, "games", inputRoomId.toUpperCase());
-  try {
-    const roomSnap = await getDoc(roomRef);
-    if (roomSnap.exists()) {
-      const data = roomSnap.data();
-      if (data.dice.status !== 'waiting' && data.player2.isOnline) { 
-        alert('ห้องเต็ม!'); 
-        setLoading(false); 
-        return; 
-      }
-      setRoomId(inputRoomId.toUpperCase()); 
-      setMyPlayerId('player2'); 
-      await updateDoc(roomRef, { message: "ผู้เล่นครบแล้ว! ทอยลูกเต๋าหาคนเริ่มก่อน...", dice: { ...data.dice, status: 'ready' }, player2: { ...data.player2, isOnline: true } });
-    } else { 
-      alert("ไม่พบห้องนี้!"); 
-    }
-  } catch (error) { 
-    alert("Error joining room"); 
-  }
-  setLoading(false);
-};
+    if (!inputRoomId) return alert("กรุณาใส่รหัสห้อง");
+    setLoading(true);
+    const roomRef = doc(db, "games", inputRoomId.toUpperCase());
+    try {
+        const roomSnap = await getDoc(roomRef);
+        if (roomSnap.exists()) {
+        const data = roomSnap.data();
+        if (data.dice.status !== 'waiting' && data.player2.isOnline) { 
+            alert('ห้องเต็ม!'); 
+            setLoading(false); return; 
+        }
+        setRoomId(inputRoomId.toUpperCase()); 
+        setMyPlayerId('player2'); 
+        await updateDoc(roomRef, { message: "ผู้เล่นครบแล้ว! ทอยลูกเต๋าหาคนเริ่มก่อน...", dice: { ...data.dice, status: 'ready' }, player2: { ...data.player2, isOnline: true } });
+        } else alert("ไม่พบห้องนี้!"); 
+    } catch (error) { alert("Error joining room"); }
+    setLoading(false);
+  };
   
   useEffect(() => {
     if (!roomId) return;
     const unsubscribe = onSnapshot(doc(db, "games", roomId), (docSnapshot) => {
       if (docSnapshot.exists()) {
         const data = docSnapshot.data();
-        if (isVsAI && data.currentTurn === 'player2' && !data.winner) {
-             handleAITurn(data);
-        }
+        if (isVsAI && data.currentTurn === 'player2' && !data.winner) handleAITurn(data);
         if (!isVsAI && data.currentTurn !== null && data.winner === null) {
             const opponentId = myPlayerId === 'player1' ? 'player2' : 'player1';
             if (data[opponentId] && data[opponentId].isOnline === false && data.dice.status === 'done') {
@@ -410,9 +427,8 @@ const CardGamePrototype = () => {
         }
         setGameState(data); setCardIdCounter(data.cardIdCounter || 100); 
       } else { 
-        alert("ห้องถูกปิดแล้ว (Room Closed)"); 
-        setRoomId(null); 
-        setGameState(null); 
+        alert("ห้องถูกปิดแล้ว"); 
+        setRoomId(null); setGameState(null); 
       }
     });
     return () => unsubscribe(); 
@@ -429,18 +445,10 @@ const CardGamePrototype = () => {
         const roll = Math.floor(Math.random() * 6) + 1;
         setDiceResult(roll); 
         
-        // 👇 อัปเดต: สุ่มเต๋าให้ AI ทันทีถ้าเล่นกับบอท
         let aiRoll = gameState.dice.player2;
-        if (isVsAI) {
-            aiRoll = Math.floor(Math.random() * 6) + 1;
-        }
+        if (isVsAI) aiRoll = Math.floor(Math.random() * 6) + 1;
 
-        const newDiceState = { 
-            ...gameState.dice, 
-            [myPlayerId]: roll,
-            ...(isVsAI && { player2: aiRoll }) // ใส่ค่าเต๋า AI ลงไป
-        };
-
+        const newDiceState = { ...gameState.dice, [myPlayerId]: roll, ...(isVsAI && { player2: aiRoll }) };
         let newState = { ...gameState, dice: newDiceState, message: `${myPlayerId === 'player1' ? 'P1' : 'P2'} ทอยได้ ${roll}` };
         
         if (newDiceState.player1 !== null && newDiceState.player2 !== null) {
@@ -452,17 +460,13 @@ const CardGamePrototype = () => {
             if (p2Roll > p1Roll) startingPlayer = 'player2';
             else if (p1Roll > p2Roll) startingPlayer = 'player1';
             else {
-                // 👇 อัปเดต: ถ้าเสมอ ให้รีเซ็ต AI เป็น null เพื่อให้ทอยใหม่ได้
                 newState.dice = { player1: null, player2: null, status: 'ready' }; 
                 newState.message = `${message} เสมอ! ทอยใหม่`;
                 await saveGame(newState); 
                 setIsRolling(false); 
                 return;
             }
-            
-            newState.currentTurn = startingPlayer; 
-            newState.turnNumber = 1; 
-            newState.startingPlayer = startingPlayer;
+            newState.currentTurn = startingPlayer; newState.turnNumber = 1; newState.startingPlayer = startingPlayer;
             newState.player1.energy = 3; newState.player1.maxEnergy = 3;
             newState.player2.energy = 3; newState.player2.maxEnergy = 3;
             newState.dice = { ...newDiceState, status: 'done' };
@@ -474,8 +478,7 @@ const CardGamePrototype = () => {
   };
   
   const drawCard = (player) => {
-    if (gameState.winner || gameState.currentTurn === null) return;
-    if (player !== myPlayerId) return; 
+    if (gameState.winner || gameState.currentTurn === null || player !== myPlayerId) return;
     if (gameState.hasDrawnThisTurn || gameState[player].deck <= 0 || gameState[player].hand.length >= 6) return;
     
     const currentDeckList = gameState[player].deckList || [];
@@ -495,17 +498,24 @@ const CardGamePrototype = () => {
     
     let newState = { ...gameState };
     let newPlayer = { ...newState[player] };
+    newPlayer.graveyard = newPlayer.graveyard || [];
     let newOpponent = { ...newState[opponent] };
+    newOpponent.graveyard = newOpponent.graveyard || [];
     
     if (card.type === 'spell' || card.type === 'trap') {
-        if (newPlayer.field.traps.length >= 3) return alert('Trap/Spell เต็ม (3 ใบ)'); // คงไว้ที่ 3
+        if (newPlayer.field.traps.length >= 3) return alert('Trap/Spell เต็ม (3 ใบ)'); 
         
         if (card.effect === 'field_buff') {
+            // เอา Field ใบเก่าทิ้งลงสุสานของเจ้าของ
+            if (newState.fieldSpellCard) {
+                newState[newState.fieldSpellCard.ownerId].graveyard = newState[newState.fieldSpellCard.ownerId].graveyard || [];
+                newState[newState.fieldSpellCard.ownerId].graveyard.push(newState.fieldSpellCard);
+            }
             newState.fieldEffect = { ...card.effectConfig, ownerId: player }; 
-            newState.message = `${player === 'player1' ? 'P1' : 'P2'} ใช้การ์ดสนาม: ${card.name}!`;
+            newState.fieldSpellCard = { ...card, ownerId: player };
+            newState.message = `${player === 'player1' ? 'P1' : 'P2'} ใช้งาน Field: ${card.name}!`;
         } 
         else if (card.effect === 'summon_from_deck') {
-            // 👇 แก้ Unit จาก 3 เป็น 5
             if (newPlayer.field.units.length >= 5) return alert('Unit เต็ม (5 ใบ) ลงไม่ได้'); 
             const targetTribe = card.effectConfig.targetTribe;
             const deckList = newPlayer.deckList || [];
@@ -518,21 +528,24 @@ const CardGamePrototype = () => {
                 newPlayer.deck = newPlayer.deckList.length;
                 newState.message = `${player === 'player1' ? 'P1' : 'P2'} อัญเชิญ ${summonedUnit.name} จากกอง!`;
                 newState.cardIdCounter += 1;
+                newPlayer.graveyard.push(card); // เวทย์มนต์ใช้แล้วลงหลุม
             } else {
                 newState.message = `ไม่มี ${targetTribe} ในกองการ์ด!`;
+                newPlayer.graveyard.push(card);
             }
         }
         else if (card.effect === 'heal_player') {
             newPlayer.hp = Math.min(20, newPlayer.hp + (card.effectValue || 0));
+            newPlayer.graveyard.push(card);
         }
         else if (card.effect === 'damage_player') {
             newOpponent.hp = Math.max(0, newOpponent.hp - (card.effectValue || 0));
+            newPlayer.graveyard.push(card);
         }
         else {
             newPlayer.field.traps.push({ ...card, canAttack: false });
         }
     } else {
-        // 👇 แก้ Unit จาก 3 เป็น 5
         if (newPlayer.field.units.length >= 5) return alert('Unit เต็ม (5 ใบ)'); 
         const canAttackImmediately = gameState.turnNumber >= 2;
         newPlayer.field.units.push({ ...card, canAttack: canAttackImmediately });
@@ -550,16 +563,32 @@ const CardGamePrototype = () => {
     if (gameState.winner || gameState.currentTurn !== player || player !== myPlayerId) return;
     if (!card.canAttack) return alert("Unit นี้ยังโจมตีไม่ได้");
     if (card.type !== 'unit') return alert("การ์ดนี้ไม่สามารถโจมตีได้");
-    if (card.attack === 0) return alert("Defender โจมตีไม่ได้!");
+    // ลบการบล็อกการโจมตีเมื่อ ATK = 0 ออกแล้ว Defender ตีได้อิสระครับ!
     setLocalAttackingCard(card); 
   };
 
-  // *** MODIFY: Add Animation Delay to attackCard ***
+  // --- ทิ้งการ์ดลงสุสาน ---
+  const handleDiscardCard = (card) => {
+      let newState = { ...gameState };
+      let pState = newState[myPlayerId];
+      pState.hand = pState.hand.filter(c => c.id !== card.id);
+      pState.graveyard = pState.graveyard || [];
+      pState.graveyard.push(card);
+      saveGame(newState);
+
+      if (discardCount - 1 <= 0) {
+          setDiscardCount(0);
+          alert("ทิ้งการ์ดเรียบร้อยแล้ว กดจบเทิร์นอีกครั้งได้เลยครับ");
+      } else {
+          setDiscardCount(discardCount - 1);
+      }
+  };
+
+  // --- 1. โจมตีการ์ดด้วยกัน (แก้บั๊กคณิตศาสตร์ + ทิ้งลงหลุม) ---
   const attackCard = (targetCard, targetPlayer) => {
     if (gameState.winner || !localAttackingCard) return; 
     if (targetCard.type !== 'unit' || targetPlayer === myPlayerId) return;
 
-    // เช็คว่า Defender ต้องตีการ์ด Defender ก่อน
     const hasOtherDefender = gameState[targetPlayer].field.units.some(u => isCardDefender(u) && u.id !== targetCard.id);
     if (hasOtherDefender && !isCardDefender(targetCard)) return alert('ต้องตี Defender ก่อน!');
 
@@ -572,118 +601,123 @@ const CardGamePrototype = () => {
         const attackerStats = getBuffedStats(attacker, gameState.fieldEffect, attackerPlayer);
         const targetStats = getBuffedStats(targetCard, gameState.fieldEffect, targetPlayer);
 
-        let newTargetHp = targetStats.hp - attackerStats.attack;
+        let damageToTarget = attackerStats.attack;
+        let attackerNewHp = gameState[attackerPlayer].hp; 
+        let battleMsg = `${attacker.name} (${damageToTarget}) โจมตี ${targetCard.name}!`;
 
-        // ตรวจสอบการ์ดกับดักที่อาจทำงาน
-        const trapCard = gameState[targetPlayer].field.traps.find(c => c.type === 'trap');
+        // ตรวจสอบการ์ดกับดัก
+        let newTraps = gameState[targetPlayer].field.traps;
+        const trapCard = newTraps.find(c => c.type === 'trap');
+        let targetGraveyard = gameState[targetPlayer].graveyard || [];
+        
         if (trapCard) {
-            const trapEffect = trapCard.effect === 'damage_player' ? trapCard.attack : 0;
-            newTargetHp -= trapEffect; // ลด HP ของการ์ดจากการสวนกลับของกับดัก
-            newState.message = `กับดักทำงาน! สวนกลับ ${trapEffect} ดาเมจ!`;
+            const trapEffect = trapCard.attack || 0; 
+            attackerNewHp -= trapEffect; 
+            battleMsg = `กับดัก ${trapCard.name} สวนกลับ ${trapEffect} ดาเมจ!`;
+            newTraps = newTraps.filter(t => t.id !== trapCard.id); 
+            targetGraveyard.push(trapCard); // กับดักทำงานเสร็จ ลงสุสาน
         }
 
-        // อัปเดตสถานะหลังการโจมตี
+        // ⚠️ แกะสมการคณิตศาสตร์ตรงนี้: เราหักเลือดออกจาก "เลือดพื้นฐาน" ตรงๆ ครับ
+        let targetNewBaseHp = targetCard.hp - damageToTarget;
+        // เช็คว่าตายมั้ย: เอาเลือดพื้นฐานใหม่ + บัฟ ถ้า <= 0 คือตุย
+        let isDead = targetNewBaseHp + (targetStats.hp - targetCard.hp) <= 0;
+
+        let newUnits = gameState[targetPlayer].field.units;
+        if (isDead) {
+            newUnits = newUnits.filter(c => c.id !== targetCard.id);
+            targetGraveyard.push(targetCard); // การ์ดที่ตาย ส่งลงสุสาน
+        } else {
+            newUnits = newUnits.map(c => c.id === targetCard.id ? { ...c, hp: targetNewBaseHp } : c);
+        }
+
         const newState = {
             ...gameState,
             [attackerPlayer]: { 
                 ...gameState[attackerPlayer], 
-                field: { 
-                    ...gameState[attackerPlayer].field, 
-                    units: gameState[attackerPlayer].field.units.map(c => c.id === attacker.id ? { ...c, canAttack: false } : c) 
-                } 
+                hp: Math.max(0, attackerNewHp), 
+                field: { ...gameState[attackerPlayer].field, units: gameState[attackerPlayer].field.units.map(c => c.id === attacker.id ? { ...c, canAttack: false } : c) } 
             },
             [targetPlayer]: { 
                 ...gameState[targetPlayer], 
-                field: { 
-                    ...gameState[targetPlayer].field, 
-                    units: newTargetHp > 0 ? gameState[targetPlayer].field.units.map(c => c.id === targetCard.id ? { ...c, hp: newTargetHp } : c) : gameState[targetPlayer].field.units.filter(c => c.id !== targetCard.id) 
-                }
+                graveyard: targetGraveyard,
+                field: { traps: newTraps, units: newUnits }
             },
-            message: `${attacker.name} (${attackerStats.attack}) โจมตี ${targetCard.name}!`
+            message: battleMsg
         };
 
         saveGame(newState);
-        setLocalAttackingCard(null);  // รีเซ็ตการ์ดที่โจมตี
-        setAttackingId(null);  // รีเซ็ต ID ของการโจมตี
+        setLocalAttackingCard(null);  
+        setAttackingId(null);  
     }, 400);
-};
+  };
 
+  // --- 2. โจมตีผู้เล่น ---
+  const attackPlayer = (targetPlayer) => {
+      if (gameState.winner || !localAttackingCard) return;
+      if (targetPlayer === myPlayerId) return;
 
-  // AttackCard 
-const AttackCard = (targetCard, targetPlayer) => {
-    if (gameState.winner || !localAttackingCard) return; 
-    if (targetCard.type !== 'unit' || targetPlayer === myPlayerId) return;
+      const attacker = localAttackingCard;
+      const attackerPlayer = gameState.currentTurn;
 
-    // เช็คการ์ด DEFENDER ต้องตีการ์ด DEFENDER ก่อน
-    const hasOtherDefender = gameState[targetPlayer].field.units.some(u => isCardDefender(u) && u.id !== targetCard.id);
-    if (hasOtherDefender && !isCardDefender(targetCard)) {
-        return alert('ต้องตี Defender ก่อน!');
-    }
+      setAttackingId(attacker.id);
 
-    const attacker = localAttackingCard;
-    const attackerPlayer = gameState.currentTurn;
+      setTimeout(() => {
+          const attackerStats = getBuffedStats(attacker, gameState.fieldEffect, attackerPlayer);
+          let targetNewHp = gameState[targetPlayer].hp - attackerStats.attack;
+          let battleMsg = `${attacker.name} โจมตีเข้าผู้เล่นโดยตรง ${attackerStats.attack} ดาเมจ!`;
+          let attackerNewHp = gameState[attackerPlayer].hp;
 
-    // Set attacking ID for UI update (แสดงแอนิเมชั่นโจมตี)
-    setAttackingId(attacker.id);
+          let newTraps = gameState[targetPlayer].field.traps;
+          const trapCard = newTraps.find(c => c.type === 'trap');
+          let targetGraveyard = gameState[targetPlayer].graveyard || [];
+          
+          if (trapCard) {
+              const trapEffect = trapCard.attack || 0; 
+              attackerNewHp -= trapEffect; 
+              battleMsg = `กับดัก ${trapCard.name} สวนกลับ ${trapEffect} ดาเมจ!`;
+              newTraps = newTraps.filter(t => t.id !== trapCard.id);
+              targetGraveyard.push(trapCard); // กับดักลงสุสาน
+          }
 
-    setTimeout(() => {
-        const attackerStats = getBuffedStats(attacker, gameState.fieldEffect, attackerPlayer);
-        const targetStats = getBuffedStats(targetCard, gameState.fieldEffect, targetPlayer);
+          const newState = {
+              ...gameState,
+              [attackerPlayer]: { 
+                  ...gameState[attackerPlayer], 
+                  hp: Math.max(0, attackerNewHp),
+                  field: { ...gameState[attackerPlayer].field, units: gameState[attackerPlayer].field.units.map(c => c.id === attacker.id ? { ...c, canAttack: false } : c) } 
+              },
+              [targetPlayer]: { 
+                  ...gameState[targetPlayer], 
+                  hp: Math.max(0, targetNewHp), 
+                  graveyard: targetGraveyard,
+                  field: { ...gameState[targetPlayer].field, traps: newTraps }
+              },
+              message: battleMsg
+          };
 
-        let newTargetHp = targetStats.hp - attackerStats.attack;
-
-        // ตรวจสอบการ์ดกับดักที่อาจทำงาน
-        const trapCard = gameState[targetPlayer].field.traps.find(c => c.type === 'trap');
-        if (trapCard) {
-            const trapEffect = trapCard.effect === 'damage_player' ? trapCard.attack : 0;
-            newTargetHp -= trapEffect; // ลด HP จากการสวนกลับของกับดัก
-            newState.message = `กับดักทำงาน! สวนกลับ ${trapEffect} ดาเมจ!`;
-        }
-
-        // อัปเดตสถานะหลังการโจมตี
-        const newState = {
-            ...gameState,
-            [attackerPlayer]: {
-                ...gameState[attackerPlayer],
-                field: {
-                    ...gameState[attackerPlayer].field,
-                    units: gameState[attackerPlayer].field.units.map(c => c.id === attacker.id ? { ...c, canAttack: false } : c)
-                }
-            },
-            [targetPlayer]: {
-                ...gameState[targetPlayer],
-                field: {
-                    ...gameState[targetPlayer].field,
-                    units: newTargetHp > 0 ?
-                        gameState[targetPlayer].field.units.map(c => c.id === targetCard.id ? { ...c, hp: newTargetHp } : c) :
-                        gameState[targetPlayer].field.units.filter(c => c.id !== targetCard.id)
-                }
-            },
-            message: `${attacker.name} (${attackerStats.attack}) โจมตี ${targetCard.name}!`
-        };
-
-        // บันทึกสถานะใหม่หลังการโจมตี
-        saveGame(newState);
-        setLocalAttackingCard(null);  // รีเซ็ตการ์ดที่โจมตี
-        setAttackingId(null);  // รีเซ็ต ID ของการโจมตี
-    }, 400);
-};
+          saveGame(newState);
+          setLocalAttackingCard(null);
+          setAttackingId(null);
+      }, 400);
+  };
 
   const endTurn = () => {
     if (gameState.winner || gameState.currentTurn !== myPlayerId) return;
     
-    if (gameState[myPlayerId].hand.length > 5) {
-        return alert("การ์ดในมือเกิน 5 ใบ! กรุณาลงการ์ดให้เหลือ 5 ใบก่อนจบเทิร์น");
+    // ระบบบังคับทิ้งการ์ด
+    const myHandSize = gameState[myPlayerId].hand.length;
+    if (myHandSize > 5) {
+        setDiscardCount(myHandSize - 5);
+        alert(`การ์ดเกิน 5 ใบ! กรุณาคลิกที่การ์ดเพื่อทิ้งลงสุสาน ${myHandSize - 5} ใบ`);
+        return;
     }
 
     const nextPlayer = gameState.currentTurn === 'player1' ? 'player2' : 'player1';
     let newTurnNumber = gameState.turnNumber;
     
-    // *** FIX: Round Logic - Increment only when turn goes back to startingPlayer ***
     if (gameState.startingPlayer) {
-        if (nextPlayer === gameState.startingPlayer) {
-            newTurnNumber += 1;
-        }
+        if (nextPlayer === gameState.startingPlayer) newTurnNumber += 1;
     } else {
         if (gameState.currentTurn === 'player2') newTurnNumber += 1;
     }
@@ -696,7 +730,6 @@ const AttackCard = (targetCard, targetPlayer) => {
     saveGame(newState);
   };
 
-  // *** Helper for visual check ***
   const opponentHasUnits = (opponentId) => {
       return gameState[opponentId].field.units.length > 0;
   };
@@ -707,10 +740,10 @@ const AttackCard = (targetCard, targetPlayer) => {
     return <div className={`bg-slate-800 border-4 border-slate-600 rounded-lg shadow-2xl relative flex items-center justify-center ${sizeClasses} overflow-hidden`}><div className="absolute inset-0 bg-cover bg-center opacity-100" style={{backgroundImage: `url(${CARD_BACK_URL})`}}></div></div>;
   };
   
-  const CardComponent = ({ card, onClick, isPlayable, isAttacking, isField, showAttackGlow, onMouseEnter, onMouseLeave, ownerId }) => {
+  const CardComponent = ({ card, onClick, isPlayable, isAttacking, isField, showAttackGlow, isDiscarding, onMouseEnter, onMouseLeave, ownerId }) => {
     const isTaunt = isCardDefender(card); 
     const sizeClasses = isField ? "w-24 h-36 text-[8px]" : "w-32 h-48 text-[10px]";
-    const hoverClass = !isField && isPlayable ? 'hover:-translate-y-6 hover:scale-110 z-20 transition-all duration-200' : '';
+    const hoverClass = !isField && (isPlayable || isDiscarding) ? 'hover:-translate-y-6 hover:scale-110 z-20 transition-all duration-200 cursor-pointer' : '';
     const stats = isField ? getBuffedStats(card, gameState?.fieldEffect, ownerId) : { attack: card.attack, hp: card.hp, isBuffed: false };
     const borderColor = card.type === 'unit' ? 'border-slate-300' : card.type === 'spell' ? (card.effect === 'field_buff' ? 'border-yellow-400' : 'border-purple-300') : 'border-red-300';
     const bgColor = 'bg-slate-900';
@@ -723,10 +756,13 @@ const AttackCard = (targetCard, targetPlayer) => {
         onClick={onClick}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
-        className={`relative ${bgColor} border-[3px] ${borderColor} rounded-lg shadow-xl flex flex-col ${sizeClasses} ${hoverClass} ${!isPlayable && !isField ? 'opacity-70 grayscale' : 'opacity-100'} select-none overflow-hidden ${moveClass}
+        className={`relative ${bgColor} border-[3px] ${borderColor} rounded-lg shadow-xl flex flex-col ${sizeClasses} ${hoverClass} ${!isPlayable && !isField && !isDiscarding ? 'opacity-70 grayscale' : 'opacity-100'} select-none overflow-hidden ${moveClass}
         ${isAttacking ? 'ring-4 ring-red-500 scale-105' : ''}
-        ${showAttackGlow ? 'ring-4 ring-yellow-400 scale-105' : ''}`}
+        ${showAttackGlow ? 'ring-4 ring-yellow-400 scale-105' : ''}
+        ${isDiscarding ? 'ring-4 ring-red-600 animate-pulse' : ''}`}
       >
+        {isDiscarding && <div className="absolute inset-0 bg-red-900/40 z-50 flex items-center justify-center backdrop-blur-[1px]"><Trash size={32} className="text-white drop-shadow-md" /></div>}
+        
         <div className="relative bg-slate-200 text-black font-bold px-1 py-0.5 flex items-center justify-between border-b-2 border-slate-400 h-6">
               <div className="absolute -left-1.5 -top-1.5 w-8 h-8 bg-blue-600 rounded-full border-2 border-white flex items-center justify-center text-white font-black text-sm shadow-sm z-10">
                  {card.cost}
@@ -778,7 +814,7 @@ const AttackCard = (targetCard, targetPlayer) => {
     const borderColor = card.type === 'unit' ? 'border-slate-300' : card.type === 'spell' ? 'border-purple-300' : 'border-red-300';
 
     return (
-      <div className="fixed top-1/2 left-8 -translate-y-1/2 z-50 hidden lg:block animate-in slide-in-from-left-10 duration-300">
+      <div className="fixed top-1/2 left-8 -translate-y-1/2 z-50 hidden lg:block animate-in slide-in-from-left-10 duration-300 pointer-events-none">
           <div className={`relative bg-slate-900 border-4 ${borderColor} rounded-xl shadow-2xl w-[280px] h-[400px] flex flex-col overflow-hidden`}>
                <div className="relative bg-slate-200 text-black font-bold px-2 py-2 flex items-center justify-between border-b-4 border-slate-400 h-12">
                     <div className="absolute -left-2 -top-2 w-12 h-12 bg-blue-600 rounded-full border-4 border-white flex items-center justify-center text-white font-black text-xl shadow-md z-10">
@@ -815,7 +851,6 @@ const AttackCard = (targetCard, targetPlayer) => {
     );
   };
 
-  // --- Layout Components (StatusBadge, DeckDisplay, FieldDisplay) ---
   const StatusBadge = ({ player, data, isMe, isCurrentTurn, canAttackPlayer }) => (
     <div onClick={() => canAttackPlayer && attackPlayer(player)} 
         className={`flex items-center gap-2 transition-all duration-300 w-full justify-start p-1 rounded-lg
@@ -836,16 +871,18 @@ const AttackCard = (targetCard, targetPlayer) => {
     </div>
   );
 
-  const DeckDisplay = ({ player }) => {
+  // --- เพิ่มกองสุสาน (Graveyard) ข้างๆ Deck ---
+  const DeckAndGraveDisplay = ({ player }) => {
       const data = gameState[player];
       const isMe = player === myPlayerId;
       const isCurrentTurn = gameState.currentTurn === player;
-      const canDraw = isCurrentTurn && !gameState.hasDrawnThisTurn && data.deck > 0 && data.hand.length < 6;
+      const canDraw = isCurrentTurn && !gameState.hasDrawnThisTurn && data.deck > 0 && data.hand.length < 6 && discardCount === 0;
       
       return (
-          <div className="flex gap-2 items-center">
+          <div className="flex flex-col gap-2 items-center justify-center">
+              {/* DECK */}
               {!isMe ? (
-                  <div className="w-12 h-16 bg-slate-800 border border-slate-600 rounded flex items-center justify-center text-slate-500 text-[10px]">Deck<br/>{data.deck}</div>
+                  <div className="w-16 h-12 bg-slate-800 border border-slate-600 rounded flex flex-col items-center justify-center text-slate-500 text-[10px]"><span>DECK</span><span className="font-bold text-sm">{data.deck}</span></div>
               ) : (
                   <button onClick={() => drawCard(player)} disabled={!canDraw} 
                       className={`w-16 h-20 rounded-lg border-2 flex flex-col items-center justify-center transition-all relative
@@ -855,6 +892,16 @@ const AttackCard = (targetCard, targetPlayer) => {
                       {isCurrentTurn && canDraw && <div className="absolute -top-2 -right-2 bg-green-500 w-4 h-4 rounded-full animate-ping"></div>}
                   </button>
               )}
+              {/* GRAVEYARD */}
+              <div 
+                  className="w-16 h-16 rounded-lg border-2 border-slate-700 bg-slate-900 flex flex-col items-center justify-center text-slate-400 shadow-inner relative group cursor-help"
+                  onMouseEnter={() => { if(data.graveyard && data.graveyard.length > 0) setShowCardDetail(data.graveyard[data.graveyard.length-1]) }}
+                  onMouseLeave={() => setShowCardDetail(null)}
+              >
+                  <Skull size={14} className="mb-1 opacity-50 group-hover:opacity-100 transition-opacity" />
+                  <span className="text-[9px] font-bold">GRAVE</span>
+                  <span className="text-sm font-bold">{data.graveyard ? data.graveyard.length : 0}</span>
+              </div>
           </div>
       );
   };
@@ -879,7 +926,24 @@ const AttackCard = (targetCard, targetPlayer) => {
   const HandArea = ({ data, isMe, isCurrentTurn }) => {
     const sortedHand = useMemo(() => [...data.hand].sort((a, b) => (a.type === 'unit' && b.type !== 'unit' ? -1 : 1)), [data.hand]);
     if (isMe) {
-        return <div className="flex justify-center gap-2 flex-wrap min-h-[180px] items-center px-4">{sortedHand.map(card => <CardComponent key={card.id} card={card} onClick={() => playCard(card, myPlayerId)} isPlayable={isCurrentTurn && data.energy >= card.cost} onMouseEnter={() => setShowCardDetail(card)} onMouseLeave={() => setShowCardDetail(null)} />)}</div>;
+        return (
+            <div className={`flex justify-center gap-2 flex-wrap min-h-[180px] items-center px-4 p-2 rounded-xl transition-all ${discardCount > 0 ? 'bg-red-900/20 border-2 border-red-500/50 animate-pulse' : ''}`}>
+                {sortedHand.map(card => (
+                    <CardComponent 
+                        key={card.id} 
+                        card={card} 
+                        onClick={() => {
+                            if (discardCount > 0) handleDiscardCard(card);
+                            else playCard(card, myPlayerId);
+                        }} 
+                        isPlayable={isCurrentTurn && data.energy >= card.cost && discardCount === 0} 
+                        isDiscarding={discardCount > 0}
+                        onMouseEnter={() => setShowCardDetail(card)} 
+                        onMouseLeave={() => setShowCardDetail(null)} 
+                    />
+                ))}
+            </div>
+        );
     }
     return <div className="flex justify-center gap-1 min-h-[120px] items-center px-4">{data.hand.map((_, i) => <CardBack key={i} type="hand" />)}</div>;
   };
@@ -888,16 +952,14 @@ const AttackCard = (targetCard, targetPlayer) => {
     const data = gameState[player];
     const isMe = player === myPlayerId;
     const isCurrentTurn = gameState.currentTurn === player;
-    const opponentId = isMe ? (player === 'player1' ? 'player2' : 'player1') : myPlayerId;
     
-    // *** FIX: ชื่อเรืองแสงถ้าไม่มี Unit ขวาง (ต้องกำจัดหมดก่อน) ***
     const canAttackPlayer = localAttackingCard && gameState.currentTurn === myPlayerId && !opponentHasUnits(player); 
     const isOpponent = !isMe;
 
     return (
       <div className={`flex ${isOpponent ? 'flex-col-reverse' : 'flex-col'} gap-1 w-full max-w-6xl mx-auto`}>
           <div className="flex justify-between items-center w-full px-2 h-[160px]">
-              <div className="w-24 flex justify-center"><DeckDisplay player={player} /></div>
+              <div className="w-24 flex justify-center"><DeckAndGraveDisplay player={player} /></div>
               <div className="flex-1 px-2 h-full"><FieldDisplay player={player} data={data.field} isMe={isMe} isCurrentTurn={isCurrentTurn} /></div>
               <div className="w-48"><StatusBadge player={player} data={data} isMe={isMe} isCurrentTurn={isCurrentTurn} canAttackPlayer={isOpponent ? canAttackPlayer : false} /></div>
           </div>
@@ -1015,20 +1077,25 @@ const AttackCard = (targetCard, targetPlayer) => {
       );
   }
 
-  // --- Main Game Board ---
   return (
     <div className="w-full h-screen bg-slate-950 text-white overflow-hidden relative flex flex-col">
         
-        {/* *** Field Effect Visuals *** */}
+        {/* *** เอฟเฟกต์สีพื้นหลังเมื่อมีการ์ดสนาม *** */}
         <div className={`absolute inset-0 opacity-20 pointer-events-none transition-all duration-1000 ${gameState.fieldEffect ? (gameState.fieldEffect.targetTribe === 'Cat' ? 'bg-yellow-600' : 'bg-orange-900') : 'bg-slate-900'}`}></div>
-        {gameState.fieldEffect && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-0 opacity-30 pointer-events-none">
-                <span className="text-[100px] font-black text-white uppercase tracking-widest">{gameState.fieldEffect.targetTribe} WORLD</span>
-            </div>
+        
+        {/* ปรับให้ Field Spell มาโชว์ตรงกลางจอ (ตามที่นายวงกรอบแดงไว้) */}
+        {gameState.fieldSpellCard && (
+             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-0 opacity-50 pointer-events-none flex flex-col items-center justify-center">
+                 <img src={gameState.fieldSpellCard.imageUrl} className="w-40 h-auto rounded-lg shadow-2xl mix-blend-screen opacity-60" />
+                 <span className="text-[40px] font-black text-white/40 uppercase tracking-widest mt-2">{gameState.fieldSpellCard.name}</span>
+             </div>
         )}
 
         <div className="fixed right-4 top-1/2 -translate-y-1/2 z-40">
-             <button onClick={endTurn} disabled={gameState.currentTurn !== myPlayerId} className={`w-24 h-24 rounded-full font-black text-lg border-4 shadow-xl flex items-center justify-center transition-all ${gameState.currentTurn === myPlayerId ? 'bg-orange-500 border-orange-300 hover:scale-110 cursor-pointer animate-pulse' : 'bg-slate-800 border-slate-600 text-slate-500 cursor-not-allowed'}`}>END<br/>TURN</button>
+             <button onClick={endTurn} disabled={gameState.currentTurn !== myPlayerId || discardCount > 0} 
+                 className={`w-24 h-24 rounded-full font-black text-lg border-4 shadow-xl flex items-center justify-center transition-all ${gameState.currentTurn === myPlayerId && discardCount === 0 ? 'bg-orange-500 border-orange-300 hover:scale-110 cursor-pointer animate-pulse' : 'bg-slate-800 border-slate-600 text-slate-500 cursor-not-allowed'}`}>
+                 {discardCount > 0 ? `ทิ้งอีก ${discardCount} ใบ` : <>END<br/>TURN</>}
+             </button>
         </div>
         
         <button onClick={closeRoom} className="fixed top-4 left-4 bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg shadow-xl border-2 border-red-400 transition-all z-50 font-bold text-xs flex items-center gap-2">
@@ -1036,16 +1103,28 @@ const AttackCard = (targetCard, targetPlayer) => {
         </button>
 
         <CardPreview card={showCardDetail} />
+        
         <div className="flex-grow flex flex-col justify-between py-2 max-w-full mx-auto w-full relative z-10">
-            <PlayerArea player={myPlayerId === 'player1' ? 'player2' : 'player1'} isOpponent={true} />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"><div className="bg-slate-900/90 px-8 py-2 rounded-full border border-slate-500 backdrop-blur shadow-xl"><span className="text-lg font-bold text-blue-300">{gameState.message}</span></div></div>
+            <PlayerArea player={myPlayerId === 'player1' ? 'player2' : 'player1'} />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none mt-20">
+                <div className="bg-slate-900/90 px-8 py-2 rounded-full border border-slate-500 backdrop-blur shadow-xl">
+                    <span className="text-lg font-bold text-blue-300">{gameState.message}</span>
+                </div>
+            </div>
             <PlayerArea player={myPlayerId} />
         </div>
-        <button onClick={() => setShowRules(!showRules)} className="fixed bottom-6 right-6 bg-slate-700 hover:bg-slate-600 text-white p-3 rounded-full shadow-xl border-2 border-slate-500 transition-all z-40"><X size={24} /></button>
+
+        <button onClick={() => setShowRules(!showRules)} className="fixed bottom-6 right-6 bg-slate-700 hover:bg-slate-600 text-white p-3 rounded-full shadow-xl border-2 border-slate-500 transition-all z-40"><HelpCircle size={24} /></button>
         {showRules && (
           <div className="fixed bottom-20 right-6 bg-slate-800/95 backdrop-blur-md text-slate-200 p-5 rounded-2xl shadow-2xl border border-slate-600 max-w-xs z-40">
              <h3 className="font-bold text-lg text-white mb-3">วิธีเล่น</h3>
-             <ul className="text-xs space-y-2 text-slate-300"><li>• ฝ่ายที่เริ่มก่อนจะไม่สามารถโจมตีผู้เล่นฝั่งตรงข้ามได้ </li><li>• การ์ดที่มีค่า ATK เป็น 0 ถึงแม้ว่าจะใช้การ์ดเพิ่มค่าโจมตีเป็น 1 ก็จะไม่สามารถโจมตีได้ </li><li>• ถ้าหาก unit โจมตี unit ค่าพลังชีวิตของผู้เล่นจะไม่ลดลง </li><li>• ฝั่งตรงข้ามไม่สามารถมองเห็นการ์ดบน Trap Zone ของผู้เล่น </li><li>• การ์ดในมือผู้เล่นสามารถมีสูงสุดได้ 5 ใบ</li><li>• Energy ของผู้เล่นจะมีสูงสุด 10/10 หน่วย</li></ul>
+             <ul className="text-xs space-y-2 text-slate-300">
+                 <li>• ฝ่ายที่เริ่มก่อนจะไม่สามารถโจมตีผู้เล่นฝั่งตรงข้ามได้ </li>
+                 <li>• Defender ทุกตัวสามารถโจมตีได้ (แม้มือเปล่า ATK 0 ก็ง้างตีหลอกได้เพื่อเปิดใช้กับดัก)</li>
+                 <li>• ถ้าหาก unit โจมตี unit ค่าพลังชีวิตของผู้เล่นจะไม่ลดลง </li>
+                 <li>• การ์ดบนมือมีสูงสุด 5 ใบ หากจั่วเกินจะต้องเลือกทิ้งการ์ดตอนจบเทิร์น</li>
+                 <li>• การ์ดที่ใช้แล้ว หรือพังตายแล้ว จะถูกส่งลงสุสาน (Grave) ข้างๆ กองการ์ด</li>
+             </ul>
           </div>
         )}
     </div>
