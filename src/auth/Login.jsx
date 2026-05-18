@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { auth } from "../firebase";
 import { signInWithEmailAndPassword, signInWithPopup, FacebookAuthProvider, GoogleAuthProvider } from "firebase/auth";
+import blackLogo from "../Photo/black cut.jpg";
+import logoMark from "../Photo/logo rm.png";
 
 const FacebookIcon = () => (
   <svg viewBox="0 0 24 24" className="w-8 h-8" fill="#1877F2">
@@ -35,7 +37,7 @@ export default function Login({ setIsAuthenticated }) {
       if (setIsAuthenticated) setIsAuthenticated(true);
       alert("เข้าสู่ระบบสำเร็จ ลุยเลย!");
       navigate('/game');
-    } catch (err) {
+    } catch {
       setError('รหัสผ่านไม่ถูกต้อง หรือยังไม่ได้สมัครสมาชิก');
     }
     setLoading(false);
@@ -89,7 +91,7 @@ export default function Login({ setIsAuthenticated }) {
           />
           <div className="relative z-10 flex flex-col items-center gap-4 select-none px-12">
             <div className="w-56 h-64">
-              <img src="src/Photo/black cut.jpg" alt="Your Custom Logo" className="w-full h-auto" />
+              <img src={blackLogo} alt="Your Custom Logo" className="w-full h-auto" />
             </div>
           </div>
         </div>
@@ -101,14 +103,14 @@ export default function Login({ setIsAuthenticated }) {
         >
           {/* mobile logo */}
           <div className="md:hidden absolute top-8 left-8 w-12 h-12">
-            <img src="src/Photo/logo rm.png" alt="Your Custom Logo" className="w-full h-auto" />
+            <img src={logoMark} alt="Your Custom Logo" className="w-full h-auto" />
           </div>
 
           {/* Header */}
           <div className="flex items-center gap-3 mb-10 justify-center">
             <h1 className="beast-title text-black leading-none" style={{ fontSize: '4.5rem' }}>LOGIN</h1>
             <div className="w-16 h-16 mb-1">
-              <img src="src/Photo/logo rm.png" alt="Your Custom Logo" className="w-full h-auto" />
+              <img src={logoMark} alt="Your Custom Logo" className="w-full h-auto" />
             </div>
           </div>
 
