@@ -27,7 +27,7 @@ const generateCardImage = (name, type) => {
 
 const isCardDefender = (card) => {
     if (!card) return false;
-    return (card.description && card.description.includes('DEFENDER')) || card.attack === 0;
+    return card.category === 'guard' || (card.description && card.description.includes('DEFENDER'));
 };
 
 const CardGamePrototype = () => {
@@ -98,6 +98,30 @@ const CardGamePrototype = () => {
           buffHp += currentFieldEffect.buffHp || 0;
       }
       return { attack: card.attack + buffAtk, hp: card.hp + buffHp, isBuffed: buffAtk > 0 || buffHp > 0 };
+  };
+
+  const getTrapDamage = (trapCard) => {
+    if (!trapCard) return 0;
+    if (typeof trapCard.effectValue === 'number') return trapCard.effectValue;
+    const description = trapCard.description || '';
+    const damageMatch = description.match(/(\d+)\s*(?:damage|dmg|ดาเมจ)/i) || description.match(/(?:deal|deals|สร้างความเสียหาย)\s*(\d+)/i);
+    if (damageMatch) return Number(damageMatch[1]) || 0;
+    return 0;
+  };
+
+  const getEffectDamage = (card) => {
+    if (!card) return 0;
+    if (typeof card.effectValue === 'number') return card.effectValue;
+    return card.attack || 0;
+  };
+
+  const canUnitAttack = (card) => {
+    if (!card) return false;
+    return card.type === 'unit' && card.category !== 'guard';
+  };
+
+  const isFirstRoundNoDamage = (state) => {
+    return (state?.turnNumber ?? 0) === 0;
   };
 
   const saveGame = async (newGameState) => {
@@ -197,6 +221,8 @@ const CardGamePrototype = () => {
                 const isTrapOrSpell = c.type === 'spell' || c.type === 'trap';
                 const isUnit = c.type === 'unit';
                 const isSummonSpell = c.effect === 'summon_from_deck';
+                const isDamageSpell = c.effect === 'damage_player';
+                if (isFirstRoundNoDamage(newState) && isDamageSpell) return false;
                 
                 if (isTrapOrSpell && !['field_buff', 'summon_from_deck', 'heal_player', 'damage_player'].includes(c.effect) && newState.player2.field.traps.length >= 3) return false;
                 if (isUnit && newState.player2.field.units.length >= 5) return false;
@@ -205,19 +231,56 @@ const CardGamePrototype = () => {
             });
 
             // AI units can attack even if ATK is 0
-            const readyUnits = newState.player2.field.units.filter(u => u.canAttack);
+            const readyUnits = isFirstRoundNoDamage(newState)
+              ? []
+              : newState.player2.field.units.filter(u => u.canAttack && canUnitAttack(u));
 
             if (playableCards.length > 0 || readyUnits.length > 0) {
                 hasActionsLeft = true; 
+                const p1Units = newState.player1.field.units || [];
+                const hasDirectPath = p1Units.length === 0;
+                const totalReadyDirectDamage = readyUnits.reduce((sum, unit) => {
+                    const s = getBuffedStats(unit, newState.fieldEffect, 'player2');
+                    return sum + Math.max(0, s.attack || 0);
+                }, 0);
+                const playableBurnDamage = playableCards.reduce((sum, c) => {
+                    if (c.effect !== 'damage_player') return sum;
+                    return sum + Math.max(0, getEffectDamage(c));
+                }, 0);
+                const canLethalNow = hasDirectPath && (newState.player1.hp - (totalReadyDirectDamage + playableBurnDamage) <= 0);
+                const underPressure = newState.player2.hp <= 10;
+
                 let actionType = 'play';
-                if (playableCards.length > 0 && readyUnits.length > 0) {
-                    actionType = Math.random() > 0.5 ? 'attack' : 'play';
-                } else if (readyUnits.length > 0) {
+                if (readyUnits.length > 0 && (canLethalNow || playableCards.length === 0)) {
                     actionType = 'attack';
+                } else if (playableCards.length > 0) {
+                    actionType = 'play';
                 }
 
                 if (actionType === 'play') {
-                    playableCards.sort((a, b) => b.cost - a.cost);
+                    const scorePlayableCard = (card) => {
+                        let score = card.cost || 0;
+                        if (card.type === 'unit') {
+                            score += (card.attack || 0) + (card.hp || 0) * 0.5;
+                            if (card.category === 'guard') score -= 3;
+                            return score;
+                        }
+                        if (card.effect === 'damage_player') {
+                            score += getEffectDamage(card) * 3;
+                        } else if (card.effect === 'heal_player') {
+                            score += underPressure ? (card.effectValue || 0) * 2.5 : -4;
+                        } else if (card.effect === 'field_buff') {
+                            const ownUnits = newState.player2.field.units.length;
+                            score += ownUnits >= 2 ? 10 : 2;
+                        } else if (card.effect === 'summon_from_deck') {
+                            score += newState.player2.field.units.length < 5 ? 8 : -10;
+                        } else if (card.type === 'trap') {
+                            score += newState.player2.field.traps.length < 3 ? 4 : -8;
+                        }
+                        return score;
+                    };
+
+                    playableCards.sort((a, b) => scorePlayableCard(b) - scorePlayableCard(a));
                     const cardToPlay = playableCards[0];
                     const cardIndexInHand = newState.player2.hand.findIndex(c => c.id === cardToPlay.id);
                     
@@ -232,27 +295,28 @@ const CardGamePrototype = () => {
                            newState.message = `AI activated Field: ${cardToPlay.name}`;
                        } else if (cardToPlay.effect === 'summon_from_deck') {
                            const dogTemplate = cardTemplates.find(c => c.tribe === 'Dog' && c.type === 'unit') || cardTemplates[0];
-                           const token = { ...dogTemplate, id: newState.cardIdCounter++, canAttack: false };
+                           const token = { ...dogTemplate, id: newState.cardIdCounter++, canAttack: canUnitAttack(dogTemplate) ? newState.turnNumber >= 2 : false };
                            newState.player2.field.units.push(token);
                            newState.player2.graveyard = newState.player2.graveyard || [];
                            newState.player2.graveyard.push(cardToPlay);
                            newState.message = `AI summoned ${token.name}.`;
                        } else if (cardToPlay.effect === 'heal_player') {
-                           newState.player2.hp = Math.min(20, newState.player2.hp + (cardToPlay.effectValue || 5));
-                           newState.player2.graveyard = newState.player2.graveyard || [];
-                           newState.player2.graveyard.push(cardToPlay);
-                           newState.message = `AI healed ${cardToPlay.effectValue || 5} HP.`;
+                            newState.player2.hp = Math.min(20, newState.player2.hp + (cardToPlay.effectValue || 5));
+                            newState.player2.graveyard = newState.player2.graveyard || [];
+                            newState.player2.graveyard.push(cardToPlay);
+                            newState.message = `AI healed ${cardToPlay.effectValue || 5} HP.`;
                        } else if (cardToPlay.effect === 'damage_player') {
-                           newState.player1.hp = Math.max(0, newState.player1.hp - (cardToPlay.effectValue || cardToPlay.attack));
-                           newState.player2.graveyard = newState.player2.graveyard || [];
-                           newState.player2.graveyard.push(cardToPlay);
-                           newState.message = `AI dealt ${cardToPlay.effectValue || cardToPlay.attack} damage to you.`;
+                            const effectDmg = getEffectDamage(cardToPlay);
+                            newState.player1.hp = Math.max(0, newState.player1.hp - effectDmg);
+                            newState.player2.graveyard = newState.player2.graveyard || [];
+                            newState.player2.graveyard.push(cardToPlay);
+                            newState.message = `AI dealt ${effectDmg} damage to you.`;
                        } else {
-                           newState.player2.field.traps.push({ ...cardToPlay, canAttack: false });
-                           newState.message = `AI set a trap.`;
+                            newState.player2.field.traps.push({ ...cardToPlay, canAttack: false });
+                            newState.message = `AI set a trap.`;
                        }
                     } else {
-                        const canAttack = newState.turnNumber >= 2;
+                        const canAttack = canUnitAttack(cardToPlay) ? newState.turnNumber >= 2 : false;
                         newState.player2.field.units.push({ ...cardToPlay, canAttack });
                         newState.message = `AI played ${cardToPlay.name}.`;
                     }
@@ -264,7 +328,12 @@ const CardGamePrototype = () => {
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 } 
                 else if (actionType === 'attack') {
-                    const attacker = readyUnits[0];
+                    const sortedAttackers = [...readyUnits].sort((a, b) => {
+                        const aStats = getBuffedStats(a, newState.fieldEffect, 'player2');
+                        const bStats = getBuffedStats(b, newState.fieldEffect, 'player2');
+                        return (bStats.attack || 0) - (aStats.attack || 0);
+                    });
+                    const attacker = sortedAttackers[0];
                     setAttackingId(attacker.id);
                     await new Promise(resolve => setTimeout(resolve, 400));
 
@@ -279,7 +348,7 @@ const CardGamePrototype = () => {
                     const triggeredTrap = p1Traps.find(c => c.type === 'trap');
 
                     if (triggeredTrap) {
-                        const trapDmg = triggeredTrap.attack || 0;
+                        const trapDmg = getTrapDamage(triggeredTrap);
                         attackerNewHp -= trapDmg; 
                         p1Traps = p1Traps.filter(t => t.id !== triggeredTrap.id); 
                         newState.player1.graveyard = newState.player1.graveyard || [];
@@ -289,9 +358,19 @@ const CardGamePrototype = () => {
                     }
 
                     if (targets.length > 0) {
-                        const defender = targets.find(u => isCardDefender(u));
-                        const target = defender || targets[0]; 
-                        
+                        const defenderTargets = targets.filter(u => isCardDefender(u));
+                        const validTargets = defenderTargets.length > 0 ? defenderTargets : targets;
+                        const target = [...validTargets].sort((a, b) => {
+                            const aStats = getBuffedStats(a, newState.fieldEffect, 'player1');
+                            const bStats = getBuffedStats(b, newState.fieldEffect, 'player1');
+                            const aEffHp = a.hp + (aStats.hp - a.hp);
+                            const bEffHp = b.hp + (bStats.hp - b.hp);
+                            const aKillable = attackerStats.attack >= aEffHp ? 1 : 0;
+                            const bKillable = attackerStats.attack >= bEffHp ? 1 : 0;
+                            if (aKillable !== bKillable) return bKillable - aKillable;
+                            return (bStats.attack || 0) - (aStats.attack || 0);
+                        })[0];
+                         
                         const targetStats = getBuffedStats(target, newState.fieldEffect, 'player1');
                         // Recalculate lethal based on effective HP (with buffs)
                         const targetNewBaseHp = target.hp - attackerStats.attack;
@@ -305,7 +384,7 @@ const CardGamePrototype = () => {
                             newState.player1.field.units = newState.player1.field.units.map(u => u.id === target.id ? { ...u, hp: targetNewBaseHp } : u);
                         }
                         
-                        const targetTypeMsg = defender ? 'Defender' : 'Unit';
+                        const targetTypeMsg = isCardDefender(target) ? 'Defender' : 'Unit';
                         battleMsg += `AI ${attacker.name} attacked ${targetTypeMsg}: ${target.name}.`;
                     } else {
                         newState.player1.hp = Math.max(0, newState.player1.hp - attackerStats.attack);
@@ -348,7 +427,7 @@ const CardGamePrototype = () => {
             newState.hasDrawnThisTurn = false;
             newState.player1.maxEnergy = calculatedMaxEnergy;
             newState.player1.energy = calculatedMaxEnergy;
-            newState.player1.field.units = newState.player1.field.units.map(c => ({...c, canAttack: true}));
+            newState.player1.field.units = newState.player1.field.units.map(c => ({...c, canAttack: canUnitAttack(c)}));
             newState.message = `Your turn (Round ${newTurnNumber})`;
             
             await saveGame(newState);
@@ -560,6 +639,7 @@ const CardGamePrototype = () => {
             newPlayer.graveyard.push(card);
         }
         else if (card.effect === 'damage_player') {
+            if (isFirstRoundNoDamage(gameState)) return alert('First round rule: no damage can be dealt yet.');
             newOpponent.hp = Math.max(0, newOpponent.hp - (card.effectValue || 0));
             newPlayer.graveyard.push(card);
         }
@@ -568,7 +648,7 @@ const CardGamePrototype = () => {
         }
     } else {
         if (newPlayer.field.units.length >= 5) return alert('Unit zone is full (5 cards).'); 
-        const canAttackImmediately = gameState.turnNumber >= 2;
+        const canAttackImmediately = canUnitAttack(card) ? gameState.turnNumber >= 2 : false;
         newPlayer.field.units.push({ ...card, canAttack: canAttackImmediately });
     }
 
@@ -582,8 +662,10 @@ const CardGamePrototype = () => {
 
   const selectAttacker = (card, player) => {
     if (gameState.winner || gameState.currentTurn !== player || player !== myPlayerId) return;
-    if (!card.canAttack) return alert("This unit cannot attack yet.");
+    if (isFirstRoundNoDamage(gameState)) return alert("First round rule: attacks are disabled.");
     if (card.type !== 'unit') return alert("This card cannot attack.");
+    if (card.category === 'guard') return alert("Guard cards are defensive only and cannot attack.");
+    if (!card.canAttack) return alert("This unit cannot attack yet.");
     // ATK 0 units are allowed to attack (tactics / trap triggers)
     setLocalAttackingCard(card); 
   };
@@ -608,6 +690,7 @@ const CardGamePrototype = () => {
   // --- 1. Unit vs Unit Attack (trap + death resolution) ---
   const attackCard = (targetCard, targetPlayer) => {
     if (gameState.winner || !localAttackingCard) return; 
+    if (isFirstRoundNoDamage(gameState)) return;
     if (targetCard.type !== 'unit' || targetPlayer === myPlayerId) return;
 
     const hasOtherDefender = gameState[targetPlayer].field.units.some(u => isCardDefender(u) && u.id !== targetCard.id);
@@ -632,7 +715,7 @@ const CardGamePrototype = () => {
         let targetGraveyard = gameState[targetPlayer].graveyard || [];
         
         if (trapCard) {
-            const trapEffect = trapCard.attack || 0; 
+            const trapEffect = getTrapDamage(trapCard); 
             attackerNewHp -= trapEffect; 
             battleMsg = `Trap ${trapCard.name} reflected ${trapEffect} damage!`;
             newTraps = newTraps.filter(t => t.id !== trapCard.id); 
@@ -676,6 +759,7 @@ const CardGamePrototype = () => {
   // --- 2. Direct Attack on Player ---
   const attackPlayer = (targetPlayer) => {
       if (gameState.winner || !localAttackingCard) return;
+      if (isFirstRoundNoDamage(gameState)) return;
       if (targetPlayer === myPlayerId) return;
 
       const attacker = localAttackingCard;
@@ -694,7 +778,7 @@ const CardGamePrototype = () => {
           let targetGraveyard = gameState[targetPlayer].graveyard || [];
           
           if (trapCard) {
-              const trapEffect = trapCard.attack || 0; 
+              const trapEffect = getTrapDamage(trapCard); 
               attackerNewHp -= trapEffect; 
               battleMsg = `Trap ${trapCard.name} reflected ${trapEffect} damage!`;
               newTraps = newTraps.filter(t => t.id !== trapCard.id);
@@ -750,13 +834,18 @@ const CardGamePrototype = () => {
     const calculatedMaxEnergy = Math.min(10, 2 + newTurnNumber);
     const newState = { ...gameState, currentTurn: nextPlayer, turnNumber: newTurnNumber, hasDrawnThisTurn: false, 
         [nextPlayer]: { ...gameState[nextPlayer], maxEnergy: calculatedMaxEnergy, energy: calculatedMaxEnergy, 
-            field: { units: gameState[nextPlayer].field.units.map(c => ({ ...c, canAttack: false })), traps: gameState[nextPlayer].field.traps } },
+            field: { units: gameState[nextPlayer].field.units.map(c => ({ ...c, canAttack: canUnitAttack(c) })), traps: gameState[nextPlayer].field.traps } },
         message: `Turn changed to ${nextPlayer === 'player1' ? 'P1' : 'P2'} (Round ${newTurnNumber})` };
     saveGame(newState);
   };
 
   const opponentHasUnits = (opponentId) => {
       return gameState[opponentId].field.units.length > 0;
+  };
+
+  const shouldShowDescription = (card) => {
+    const category = (card?.category || '').toLowerCase();
+    return category === 'trap' || category === 'spell' || category === 'guard';
   };
 
   // --- UI Components ---
@@ -779,7 +868,8 @@ const CardGamePrototype = () => {
 
     const isMoving = card.id === attackingId;
     const moveClass = isMoving ? (ownerId === 'player1' ? 'translate-y-[-150px] scale-110 z-50 transition-transform duration-300 ease-in-out' : 'translate-y-[150px] scale-110 z-50 transition-transform duration-300 ease-in-out') : '';
-    const descriptionLength = (card.description || '').length;
+    const showDescription = shouldShowDescription(card);
+    const descriptionLength = showDescription ? (card.description || '').length : 0;
     const hasStatFooter = card.type === 'unit' || card.attack > 0;
     const descriptionTextSize = isField
       ? (descriptionLength > 120 ? 'text-[7px]' : descriptionLength > 80 ? 'text-[8px]' : 'text-[9px]')
@@ -832,11 +922,13 @@ const CardGamePrototype = () => {
             {card.effect === 'field_buff' ? 'FIELD' : card.category}
         </div>
 
-        <div className={`${descriptionHeight} shrink-0 bg-slate-100 p-1 flex items-center justify-center text-center overflow-hidden`}>
-            <p className={`text-slate-900 font-serif leading-tight font-medium break-words ${descriptionTextSize} ${isField ? 'line-clamp-3' : 'line-clamp-4'}`}>
-               {card.description}
-            </p>
-        </div>
+        {showDescription && (
+          <div className={`${descriptionHeight} shrink-0 bg-slate-100 p-1 flex items-center justify-center text-center overflow-hidden`}>
+              <p className={`text-slate-900 font-serif leading-tight font-medium break-words ${descriptionTextSize} ${isField ? 'line-clamp-3' : 'line-clamp-4'}`}>
+                 {card.description}
+              </p>
+          </div>
+        )}
 
         {hasStatFooter && (
              <div className="h-6 shrink-0 mt-auto bg-slate-800 flex justify-between items-center px-1 border-t-2 border-slate-400">
@@ -858,6 +950,7 @@ const CardGamePrototype = () => {
   const CardPreview = ({ card }) => {
     if (!card) return null;
     const isTaunt = isCardDefender(card);
+    const showDescription = shouldShowDescription(card);
     const hasStatFooter = card.type === 'unit' || card.attack > 0;
     const borderColor = card.type === 'unit' ? 'border-slate-300' : card.type === 'spell' ? 'border-purple-300' : 'border-red-300';
     const previewBg = card.category === 'spell'
@@ -882,11 +975,13 @@ const CardGamePrototype = () => {
                <div className="bg-slate-800 text-white text-xs text-center py-1 font-bold uppercase border-b border-slate-600 tracking-widest">
                     {card.type} • {card.tribe}
                </div>
-               <div className={`${hasStatFooter ? 'h-[120px] border-b-4' : 'h-[168px]'} shrink-0 bg-slate-100 p-4 flex items-center justify-center text-center border-slate-400 overflow-hidden`}>
-                    <p className={`text-slate-900 font-serif ${(card.description || '').length > 180 ? 'text-sm' : 'text-base'} font-medium leading-snug break-words line-clamp-5`}>
-                        {card.description}
-                    </p>
-               </div>
+               {showDescription && (
+                 <div className={`${hasStatFooter ? 'h-[120px] border-b-4' : 'h-[168px]'} shrink-0 bg-slate-100 p-4 flex items-center justify-center text-center border-slate-400 overflow-hidden`}>
+                      <p className={`text-slate-900 font-serif ${(card.description || '').length > 180 ? 'text-sm' : 'text-base'} font-medium leading-snug break-words line-clamp-5`}>
+                          {card.description}
+                      </p>
+                 </div>
+               )}
                {hasStatFooter && (
                    <div className="h-12 shrink-0 mt-auto bg-slate-800 flex justify-between items-center px-4">
                         <div className="flex items-center gap-2">
