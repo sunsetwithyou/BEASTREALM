@@ -403,6 +403,7 @@ const CardGamePrototype = () => {
         }
         setRoomId(inputRoomId.toUpperCase()); 
         setMyPlayerId('player2'); 
+        setIsVsAI(false);
         await updateDoc(roomRef, { message: "ผู้เล่นครบแล้ว! ทอยลูกเต๋าหาคนเริ่มก่อน...", dice: { ...data.dice, status: 'ready' }, player2: { ...data.player2, isOnline: true } });
         } else alert("ไม่พบห้องนี้!"); 
     } catch (error) { alert("Error joining room"); }
