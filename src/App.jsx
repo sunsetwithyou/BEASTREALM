@@ -3,7 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import SignUp from './auth/SignUp';
 import Login from './auth/Login';
+import PlayMenu from './components/PlayMenu';
 import Game from './components/Game';
+import HowToPlay from './components/HowToPlay';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -27,8 +29,10 @@ function App() {
             </>
           ) : (
             <>
+              <Route path="/menu" element={<PlayMenu />} />
               <Route path="/game" element={<Game />} />
-              <Route path="*" element={<Navigate to="/game" replace />} />
+              <Route path="/how-to-play" element={<HowToPlay />} />
+              <Route path="*" element={<Navigate to="/menu" replace />} />
             </>
           )}
         </Routes>

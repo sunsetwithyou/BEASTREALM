@@ -36,7 +36,7 @@ export default function Login({ setIsAuthenticated }) {
       await signInWithEmailAndPassword(auth, email, password);
       if (setIsAuthenticated) setIsAuthenticated(true);
       alert("เข้าสู่ระบบสำเร็จ ลุยเลย!");
-      navigate('/game');
+      navigate('/menu');
     } catch {
       setError('รหัสผ่านไม่ถูกต้อง หรือยังไม่ได้สมัครสมาชิก');
     }
@@ -50,7 +50,7 @@ export default function Login({ setIsAuthenticated }) {
       const result = await signInWithPopup(auth, provider);
       if (setIsAuthenticated) setIsAuthenticated(true);
       alert(`ยินดีต้อนรับ ${result.user.displayName}!`);
-      navigate('/game');
+      navigate('/menu');
     } catch (error) {
       console.error("Google Login Error:", error);
       alert("เกิดข้อผิดพลาดในการล็อกอินด้วย Google");
@@ -64,7 +64,7 @@ export default function Login({ setIsAuthenticated }) {
       const result = await signInWithPopup(auth, provider);
       if (setIsAuthenticated) setIsAuthenticated(true);
       alert(`ยินดีต้อนรับ ${result.user.displayName}!`);
-      navigate('/game');
+      navigate('/menu');
     } catch (error) {
       console.error("Facebook Login Error:", error);
       alert("เกิดข้อผิดพลาดในการล็อกอินด้วย Facebook");

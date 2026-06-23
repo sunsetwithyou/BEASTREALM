@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Shield, Zap, Heart, Swords, Plus, Ban, X, HelpCircle, Clock, AlertTriangle, Copy, RotateCcw, Dice6, HandCoins, Minus, Loader2, MinusSquare, Skull, Trash2, Map, Trash } from 'lucide-react'; 
 import { excelCards } from '../data/cardsData';
+import { useNavigate } from 'react-router-dom';
 
 // *** 1. Firebase Connection ***
 import { initializeApp } from "firebase/app";
@@ -18,6 +19,9 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const ACTIVE_ROOM_KEY = 'beastrealm.activeRoom';
+const ACTIVE_PLAYER_KEY = 'beastrealm.activePlayer';
+const ACTIVE_MODE_KEY = 'beastrealm.activeMode';
 
 const CARD_BACK_URL = "https://i.postimg.cc/05Y7vZYW/BG.jpg";
 
@@ -25,12 +29,20 @@ const generateCardImage = (name, type) => {
     return `https://placehold.co/400x300/2e1065/FFFFFF.png?text=${name.replace(/\s/g, '+')}&font=roboto`;
 };
 
+const getCardText = (card) => {
+    if (!card) return '';
+    if ((card.category || '').toLowerCase() === 'unit') return card.skill || '';
+    return card.description || '';
+};
+
 const isCardDefender = (card) => {
     if (!card) return false;
-    return card.category === 'guard' || (card.description && card.description.includes('DEFENDER'));
+    const cardText = getCardText(card);
+    return card.category === 'guard' || (cardText && cardText.includes('DEFENDER'));
 };
 
 const CardGamePrototype = () => {
+  const navigate = useNavigate();
   // --- Card Templates ---
   const cardTemplates = useMemo(
   () => excelCards.map((c) => ({ ...c, imageUrl: generateCardImage(c.name, c.type) })),
@@ -44,7 +56,6 @@ const CardGamePrototype = () => {
   const [loading, setLoading] = useState(false);
   const [gameState, setGameState] = useState(null);
   const [cardIdCounter, setCardIdCounter] = useState(100); 
-  const [showRules, setShowRules] = useState(false);
   const [localAttackingCard, setLocalAttackingCard] = useState(null);
   const [diceResult, setDiceResult] = useState(null); 
   const [isRolling, setIsRolling] = useState(false); 
@@ -52,11 +63,39 @@ const CardGamePrototype = () => {
   const [copied, setCopied] = useState(false); 
   const [isVsAI, setIsVsAI] = useState(false);
   const [canEnterMatch, setCanEnterMatch] = useState(false);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
   
   // *** State for Animation and Discard ***
   const [attackingId, setAttackingId] = useState(null); 
   const [discardCount, setDiscardCount] = useState(0); // Number of cards still required to discard
   const isAIProcessing = useRef(false); 
+  const hasAutoStartedMode = useRef(false);
+
+  useEffect(() => {
+    const savedRoomId = localStorage.getItem(ACTIVE_ROOM_KEY);
+    const savedPlayerId = localStorage.getItem(ACTIVE_PLAYER_KEY);
+    const savedMode = localStorage.getItem(ACTIVE_MODE_KEY);
+
+    if (savedRoomId && savedPlayerId) {
+      setRoomId(savedRoomId);
+      setMyPlayerId(savedPlayerId);
+      setIsVsAI(savedMode === 'vs-ai');
+    }
+
+    setIsBootstrapping(false);
+  }, []);
+
+  useEffect(() => {
+    if (isBootstrapping) return;
+    if (roomId || gameState || hasAutoStartedMode.current) return;
+
+    const preferredMode = localStorage.getItem(ACTIVE_MODE_KEY);
+    if (preferredMode === 'vs-ai') {
+      hasAutoStartedMode.current = true;
+      localStorage.removeItem(ACTIVE_MODE_KEY);
+      createRoom(true);
+    }
+  }, [isBootstrapping, roomId, gameState]);
 
   // --- Helpers and Core Logic ---
   const shuffleCards = (cards) => [...cards].sort(() => Math.random() - 0.5);
@@ -120,6 +159,208 @@ const CardGamePrototype = () => {
     return card.type === 'unit' && card.category !== 'guard';
   };
 
+  const parseUnitOnPlaySkill = (card) => {
+    const text = card?.skill || '';
+    if (!text) return null;
+
+    const normalized = text.toLowerCase();
+    const healMatch = normalized.match(/heal(?:\s+hp)?(?:\s+life)?\s*\+?\s*(\d+)/i);
+    if (healMatch) {
+      return { type: 'heal_player', value: Number(healMatch[1]) || 0 };
+    }
+
+    const drawMatch = normalized.match(/draw\s+(\d+)\s+card/i);
+    if (drawMatch) {
+      return { type: 'draw_cards', value: Number(drawMatch[1]) || 0 };
+    }
+
+    const ownAllAtkBuff = normalized.match(/all of your unit get attack\s*([+-]?\d+)/i);
+    if (ownAllAtkBuff) {
+      return { type: 'buff_own_units_atk', value: Number(ownAllAtkBuff[1]) || 0 };
+    }
+
+    const ownAllHpBuff = normalized.match(/all of your unit get hp\s*([+-]?\d+)/i);
+    if (ownAllHpBuff) {
+      return { type: 'buff_own_units_hp', value: Number(ownAllHpBuff[1]) || 0 };
+    }
+
+    const oppAllAtkDebuff = normalized.match(/all of your opponent'?s unit get attack\s*([+-]?\d+)/i);
+    if (oppAllAtkDebuff) {
+      return { type: 'buff_opp_units_atk', value: Number(oppAllAtkDebuff[1]) || 0 };
+    }
+
+    const oppAllStatDebuff = normalized.match(/all of your opponent'?s unit get attack and hp\s*([+-]?\d+)/i);
+    if (oppAllStatDebuff) {
+      return { type: 'buff_opp_units_both', value: Number(oppAllStatDebuff[1]) || 0 };
+    }
+
+    const enemyDmgMatch = normalized.match(/deal\s+(\d+)\s+damage to your opponent'?s unit/i);
+    if (enemyDmgMatch) {
+      return { type: 'damage_enemy_unit', value: Number(enemyDmgMatch[1]) || 0 };
+    }
+
+    const setEnemyHpOne = /choose one of your opponent unit make it hp to 1/i.test(normalized);
+    if (setEnemyHpOne) {
+      return { type: 'set_enemy_unit_hp_one' };
+    }
+
+    const discardMatch = normalized.match(/opponent must discard\s+(\d+)\s+card/i);
+    if (discardMatch) {
+      return { type: 'opponent_discard', value: Number(discardMatch[1]) || 0 };
+    }
+
+    const bounceOwnMatch = /put one of your unit to your hand/i.test(normalized);
+    if (bounceOwnMatch) {
+      return { type: 'bounce_own_unit' };
+    }
+
+    const summonFromHandMatch = /summon one unit from your hand that has cost lower than\s+(\d+)/i.test(normalized);
+    if (summonFromHandMatch) {
+      return { type: 'summon_low_cost_from_hand' };
+    }
+
+    const addBirthday = /get "birthday celebration" to your hand/i.test(normalized);
+    if (addBirthday) {
+      return { type: 'add_birthday_to_hand' };
+    }
+
+    const hasAtkBuff = /(?:atk|attack)\s*\+?\s*1|\+?\s*1\s*(?:atk|attack)/i.test(normalized);
+    const hasDefBuff = /(?:def|defense|hp)\s*\+?\s*1|\+?\s*1\s*(?:def|defense|hp)/i.test(normalized);
+    const affectsAll = /all cards|all units|every unit|บนพื้นที่การเล่น|on the field/i.test(normalized);
+    if (hasAtkBuff && hasDefBuff && affectsAll) {
+      return { type: 'buff_all_units', atk: 1, hp: 1 };
+    }
+
+    return null;
+  };
+
+  const applyUnitOnPlaySkill = (state, ownerId, playedUnit) => {
+    const skill = parseUnitOnPlaySkill(playedUnit);
+    if (!skill) return null;
+
+    if (skill.type === 'heal_player') {
+      const currentHp = state[ownerId].hp || 0;
+      state[ownerId].hp = Math.min(20, currentHp + (skill.value || 0));
+      return `${playedUnit.name} skill activated: +${skill.value} HP.`;
+    }
+
+    if (skill.type === 'buff_all_units') {
+      const buffUnitList = (units = []) =>
+        units.map((u) => (u.type === 'unit'
+          ? { ...u, attack: (u.attack || 0) + (skill.atk || 0), hp: (u.hp || 0) + (skill.hp || 0) }
+          : u));
+      state.player1.field.units = buffUnitList(state.player1.field.units);
+      state.player2.field.units = buffUnitList(state.player2.field.units);
+      return `${playedUnit.name} skill activated: all units +${skill.atk}/+${skill.hp}.`;
+    }
+
+    const opponentId = ownerId === 'player1' ? 'player2' : 'player1';
+    const clampUnitHp = (u) => ({ ...u, hp: Math.max(0, u.hp || 0) });
+    const drawCardFor = (playerId, count) => {
+      for (let i = 0; i < count; i += 1) {
+        const deckList = state[playerId].deckList || [];
+        if (!deckList.length || state[playerId].hand.length >= 6) break;
+        const newCard = { ...deckList[0], id: state.cardIdCounter++, canAttack: false };
+        state[playerId].hand.push(newCard);
+        state[playerId].deckList = deckList.slice(1);
+        state[playerId].deck = state[playerId].deckList.length;
+      }
+    };
+
+    if (skill.type === 'draw_cards') {
+      drawCardFor(ownerId, skill.value || 0);
+      return `${playedUnit.name} skill activated: draw ${skill.value} card(s).`;
+    }
+
+    if (skill.type === 'buff_own_units_atk') {
+      state[ownerId].field.units = state[ownerId].field.units.map((u) => ({ ...u, attack: (u.attack || 0) + (skill.value || 0) }));
+      return `${playedUnit.name} skill activated: your units ATK ${skill.value >= 0 ? '+' : ''}${skill.value}.`;
+    }
+
+    if (skill.type === 'buff_own_units_hp') {
+      state[ownerId].field.units = state[ownerId].field.units.map((u) => ({ ...u, hp: Math.max(0, (u.hp || 0) + (skill.value || 0)) }));
+      return `${playedUnit.name} skill activated: your units HP ${skill.value >= 0 ? '+' : ''}${skill.value}.`;
+    }
+
+    if (skill.type === 'buff_opp_units_atk') {
+      state[opponentId].field.units = state[opponentId].field.units.map((u) => ({ ...u, attack: Math.max(0, (u.attack || 0) + (skill.value || 0)) }));
+      return `${playedUnit.name} skill activated: opponent units ATK ${skill.value}.`;
+    }
+
+    if (skill.type === 'buff_opp_units_both') {
+      const debuffed = state[opponentId].field.units.map((u) => ({
+        ...u,
+        attack: Math.max(0, (u.attack || 0) + (skill.value || 0)),
+        hp: (u.hp || 0) + (skill.value || 0),
+      }));
+      const dead = debuffed.filter((u) => (u.hp || 0) <= 0);
+      state[opponentId].field.units = debuffed.filter((u) => (u.hp || 0) > 0).map(clampUnitHp);
+      if (dead.length) state[opponentId].graveyard.push(...dead);
+      return `${playedUnit.name} skill activated: opponent units ATK/HP ${skill.value}.`;
+    }
+
+    if (skill.type === 'damage_enemy_unit') {
+      const targets = state[opponentId].field.units || [];
+      if (!targets.length) return `${playedUnit.name} skill activated, but no enemy unit target.`;
+      const target = [...targets].sort((a, b) => (b.attack || 0) - (a.attack || 0))[0];
+      const newHp = (target.hp || 0) - (skill.value || 0);
+      if (newHp <= 0) {
+        state[opponentId].field.units = targets.filter((u) => u.id !== target.id);
+        state[opponentId].graveyard.push(target);
+      } else {
+        state[opponentId].field.units = targets.map((u) => (u.id === target.id ? { ...u, hp: newHp } : u));
+      }
+      return `${playedUnit.name} skill activated: dealt ${skill.value} to ${target.name}.`;
+    }
+
+    if (skill.type === 'set_enemy_unit_hp_one') {
+      const targets = state[opponentId].field.units || [];
+      if (!targets.length) return `${playedUnit.name} skill activated, but no enemy unit target.`;
+      const target = [...targets].sort((a, b) => (b.hp || 0) - (a.hp || 0))[0];
+      state[opponentId].field.units = targets.map((u) => (u.id === target.id ? { ...u, hp: 1 } : u));
+      return `${playedUnit.name} skill activated: ${target.name} HP set to 1.`;
+    }
+
+    if (skill.type === 'opponent_discard') {
+      const count = skill.value || 0;
+      const discarded = state[opponentId].hand.splice(0, count);
+      state[opponentId].graveyard.push(...discarded);
+      return `${playedUnit.name} skill activated: opponent discarded ${discarded.length} card(s).`;
+    }
+
+    if (skill.type === 'bounce_own_unit') {
+      const ownUnits = state[ownerId].field.units.filter((u) => u.id !== playedUnit.id);
+      if (!ownUnits.length) return `${playedUnit.name} skill activated, but no other ally unit.`;
+      const target = ownUnits.sort((a, b) => (a.cost || 0) - (b.cost || 0))[0];
+      state[ownerId].field.units = state[ownerId].field.units.filter((u) => u.id !== target.id);
+      state[ownerId].hand.push({ ...target, canAttack: false });
+      return `${playedUnit.name} skill activated: returned ${target.name} to hand.`;
+    }
+
+    if (skill.type === 'summon_low_cost_from_hand') {
+      if (state[ownerId].field.units.length >= 5) return `${playedUnit.name} skill activated, but unit zone is full.`;
+      const idx = state[ownerId].hand.findIndex((c) => c.type === 'unit' && c.cost < 4);
+      if (idx === -1) return `${playedUnit.name} skill activated, but no unit cost < 4 in hand.`;
+      const summoned = state[ownerId].hand.splice(idx, 1)[0];
+      state[ownerId].field.units.push({ ...summoned, canAttack: state.turnNumber >= 2 && canUnitAttack(summoned) });
+      return `${playedUnit.name} skill activated: summoned ${summoned.name} from hand.`;
+    }
+
+    if (skill.type === 'add_birthday_to_hand') {
+      const findInDeck = (list = []) => list.findIndex((c) => (c.name || '').toLowerCase() === 'birthday celebration');
+      let idx = findInDeck(state[ownerId].deckList);
+      if (idx >= 0 && state[ownerId].hand.length < 6) {
+        const card = state[ownerId].deckList.splice(idx, 1)[0];
+        state[ownerId].hand.push({ ...card, id: state.cardIdCounter++, canAttack: false });
+        state[ownerId].deck = state[ownerId].deckList.length;
+        return `${playedUnit.name} skill activated: added Birthday Celebration to hand.`;
+      }
+      return `${playedUnit.name} skill activated, but Birthday Celebration not found.`;
+    }
+
+    return null;
+  };
+
   const isFirstRoundNoDamage = (state) => {
     return (state?.turnNumber ?? 0) === 0;
   };
@@ -151,7 +392,11 @@ const CardGamePrototype = () => {
         console.error("Error closing room:", error);
         alert("Failed to close room.");
     }
+    localStorage.removeItem(ACTIVE_ROOM_KEY);
+    localStorage.removeItem(ACTIVE_PLAYER_KEY);
+    localStorage.removeItem(ACTIVE_MODE_KEY);
     setLoading(false);
+    navigate('/menu');
   };
 
   const returnToModeSelect = async () => {
@@ -179,6 +424,10 @@ const CardGamePrototype = () => {
       setIsRolling(false);
       setCanEnterMatch(false);
       setLoading(false);
+      localStorage.removeItem(ACTIVE_ROOM_KEY);
+      localStorage.removeItem(ACTIVE_PLAYER_KEY);
+      localStorage.removeItem(ACTIVE_MODE_KEY);
+      navigate('/menu');
     }
   };
 
@@ -299,7 +548,8 @@ const CardGamePrototype = () => {
                            newState.player2.field.units.push(token);
                            newState.player2.graveyard = newState.player2.graveyard || [];
                            newState.player2.graveyard.push(cardToPlay);
-                           newState.message = `AI summoned ${token.name}.`;
+                           const skillMessage = applyUnitOnPlaySkill(newState, 'player2', token);
+                           newState.message = `AI summoned ${token.name}.${skillMessage ? ` ${skillMessage}` : ''}`;
                        } else if (cardToPlay.effect === 'heal_player') {
                             newState.player2.hp = Math.min(20, newState.player2.hp + (cardToPlay.effectValue || 5));
                             newState.player2.graveyard = newState.player2.graveyard || [];
@@ -317,8 +567,10 @@ const CardGamePrototype = () => {
                        }
                     } else {
                         const canAttack = canUnitAttack(cardToPlay) ? newState.turnNumber >= 2 : false;
-                        newState.player2.field.units.push({ ...cardToPlay, canAttack });
-                        newState.message = `AI played ${cardToPlay.name}.`;
+                        const playedUnit = { ...cardToPlay, canAttack };
+                        newState.player2.field.units.push(playedUnit);
+                        const skillMessage = applyUnitOnPlaySkill(newState, 'player2', playedUnit);
+                        newState.message = skillMessage ? `AI played ${cardToPlay.name}. ${skillMessage}` : `AI played ${cardToPlay.name}.`;
                     }
                     
                     newState.player2.energy -= cardToPlay.cost;
@@ -465,6 +717,9 @@ const CardGamePrototype = () => {
         setRoomId(newRoomId); 
         setMyPlayerId('player1'); 
         setIsVsAI(vsAI);
+        localStorage.setItem(ACTIVE_ROOM_KEY, newRoomId);
+        localStorage.setItem(ACTIVE_PLAYER_KEY, 'player1');
+        localStorage.setItem(ACTIVE_MODE_KEY, vsAI ? 'vs-ai' : 'pvp');
     } 
     catch (error) { alert("Error: " + error.message); }
     setLoading(false);
@@ -485,6 +740,9 @@ const CardGamePrototype = () => {
         setRoomId(inputRoomId.toUpperCase()); 
         setMyPlayerId('player2'); 
         setIsVsAI(false);
+        localStorage.setItem(ACTIVE_ROOM_KEY, inputRoomId.toUpperCase());
+        localStorage.setItem(ACTIVE_PLAYER_KEY, 'player2');
+        localStorage.setItem(ACTIVE_MODE_KEY, 'pvp');
         await updateDoc(roomRef, { message: "Both players are in! Roll dice to decide who starts...", dice: { ...data.dice, status: 'ready' }, player2: { ...data.player2, isOnline: true } });
         } else alert("Room not found."); 
     } catch (error) { alert("Error joining room"); }
@@ -626,7 +884,8 @@ const CardGamePrototype = () => {
                 newPlayer.field.units.push(summonedUnit);
                 newPlayer.deckList.splice(foundIndex, 1);
                 newPlayer.deck = newPlayer.deckList.length;
-                newState.message = `${player === 'player1' ? 'P1' : 'P2'} summoned ${summonedUnit.name} from deck!`;
+                const skillMessage = applyUnitOnPlaySkill(newState, player, summonedUnit);
+                newState.message = `${player === 'player1' ? 'P1' : 'P2'} summoned ${summonedUnit.name} from deck!${skillMessage ? ` ${skillMessage}` : ''}`;
                 newState.cardIdCounter += 1;
                 newPlayer.graveyard.push(card); // Spell has been used and goes to graveyard
             } else {
@@ -649,7 +908,12 @@ const CardGamePrototype = () => {
     } else {
         if (newPlayer.field.units.length >= 5) return alert('Unit zone is full (5 cards).'); 
         const canAttackImmediately = canUnitAttack(card) ? gameState.turnNumber >= 2 : false;
-        newPlayer.field.units.push({ ...card, canAttack: canAttackImmediately });
+        const playedUnit = { ...card, canAttack: canAttackImmediately };
+        newPlayer.field.units.push(playedUnit);
+        const skillMessage = applyUnitOnPlaySkill(newState, player, playedUnit);
+        if (skillMessage) {
+          newState.message = `${player === 'player1' ? 'P1' : 'P2'} played ${card.name}. ${skillMessage}`;
+        }
     }
 
     newPlayer.energy -= card.cost;
@@ -845,7 +1109,8 @@ const CardGamePrototype = () => {
 
   const shouldShowDescription = (card) => {
     const category = (card?.category || '').toLowerCase();
-    return category === 'trap' || category === 'spell' || category === 'guard';
+    if (category === 'unit') return Boolean(getCardText(card));
+    return category === 'trap' || category === 'spell';
   };
 
   // --- UI Components ---
@@ -869,7 +1134,8 @@ const CardGamePrototype = () => {
     const isMoving = card.id === attackingId;
     const moveClass = isMoving ? (ownerId === 'player1' ? 'translate-y-[-150px] scale-110 z-50 transition-transform duration-300 ease-in-out' : 'translate-y-[150px] scale-110 z-50 transition-transform duration-300 ease-in-out') : '';
     const showDescription = shouldShowDescription(card);
-    const descriptionLength = showDescription ? (card.description || '').length : 0;
+    const cardText = getCardText(card);
+    const descriptionLength = showDescription ? cardText.length : 0;
     const hasStatFooter = card.type === 'unit' || card.attack > 0;
     const descriptionTextSize = isField
       ? (descriptionLength > 120 ? 'text-[7px]' : descriptionLength > 80 ? 'text-[8px]' : 'text-[9px]')
@@ -925,7 +1191,7 @@ const CardGamePrototype = () => {
         {showDescription && (
           <div className={`${descriptionHeight} shrink-0 bg-slate-100 p-1 flex items-center justify-center text-center overflow-hidden`}>
               <p className={`text-slate-900 font-serif leading-tight font-medium break-words ${descriptionTextSize} ${isField ? 'line-clamp-3' : 'line-clamp-4'}`}>
-                 {card.description}
+                 {cardText}
               </p>
           </div>
         )}
@@ -951,6 +1217,7 @@ const CardGamePrototype = () => {
     if (!card) return null;
     const isTaunt = isCardDefender(card);
     const showDescription = shouldShowDescription(card);
+    const cardText = getCardText(card);
     const hasStatFooter = card.type === 'unit' || card.attack > 0;
     const borderColor = card.type === 'unit' ? 'border-slate-300' : card.type === 'spell' ? 'border-purple-300' : 'border-red-300';
     const previewBg = card.category === 'spell'
@@ -977,8 +1244,8 @@ const CardGamePrototype = () => {
                </div>
                {showDescription && (
                  <div className={`${hasStatFooter ? 'h-[120px] border-b-4' : 'h-[168px]'} shrink-0 bg-slate-100 p-4 flex items-center justify-center text-center border-slate-400 overflow-hidden`}>
-                      <p className={`text-slate-900 font-serif ${(card.description || '').length > 180 ? 'text-sm' : 'text-base'} font-medium leading-snug break-words line-clamp-5`}>
-                          {card.description}
+                      <p className={`text-slate-900 font-serif ${cardText.length > 180 ? 'text-sm' : 'text-base'} font-medium leading-snug break-words line-clamp-5`}>
+                          {cardText}
                       </p>
                  </div>
                )}
@@ -1136,6 +1403,14 @@ const CardGamePrototype = () => {
     if (d.status === 'resolving') return 'Both players rolled. Revealing result...';
     return 'Starting match...';
   }, [gameState]);
+
+  if (isBootstrapping) {
+    return (
+      <div className="w-full h-screen bg-slate-950 text-white flex items-center justify-center">
+        <Loader2 className="w-10 h-10 animate-spin text-blue-400" />
+      </div>
+    );
+  }
 
   if (!roomId || !gameState || !isGameStarted) {
     return (
@@ -1302,19 +1577,13 @@ const CardGamePrototype = () => {
             <PlayerArea player={myPlayerId === 'player1' ? 'player2' : 'player1'} />
             <PlayerArea player={myPlayerId} />
         </div>
-<button onClick={() => setShowRules(!showRules)} className="fixed bottom-6 right-6 bg-slate-700 hover:bg-slate-600 text-white p-3 rounded-full shadow-xl border-2 border-slate-500 transition-all z-40"><HelpCircle size={24} /></button>
-        {showRules && (
-          <div className="fixed bottom-20 right-6 bg-slate-800/95 backdrop-blur-md text-slate-200 p-5 rounded-2xl shadow-2xl border border-slate-600 max-w-xs z-40">
-             <h3 className="font-bold text-lg text-white mb-3">Rules</h3>
-             <ul className="text-xs space-y-2 text-slate-300">
-                 <li>- The starting player cannot attack the opposing player directly on the first opportunity.</li>
-                 <li>- Defender units can still attack (even with 0 ATK) to trigger traps or tactical plays.</li>
-                 <li>- If a unit attacks a unit, player HP is not reduced by that battle.</li>
-                 <li>- Maximum hand size is 5. If over 5, discard down at end of turn.</li>
-                 <li>- Used or destroyed cards go to the Graveyard.</li>
-             </ul>
-          </div>
-        )}
+        <button
+          onClick={() => { window.location.hash = '#/how-to-play'; }}
+          className="fixed bottom-6 right-6 bg-slate-700 hover:bg-slate-600 text-white p-3 rounded-full shadow-xl border-2 border-slate-500 transition-all z-40"
+          aria-label="Open how to play"
+        >
+          <HelpCircle size={24} />
+        </button>
     </div>
   );
 };

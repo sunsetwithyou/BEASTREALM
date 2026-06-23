@@ -7,7 +7,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 1 attack and 2 defense. It can deal 1 physical damage to an enemy and withstand up to 2 damage."
+    "skill": "When this unit summoned, deal 1 damage to your opponent's unit."
   },
   {
     "name": "Blastwave Swaggerer",
@@ -17,7 +17,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 2 attack and 1 defense. It can deal 2 physical damage to an enemy and withstand up to 1 damage."
+    "skill": "If this unit attacked and destroyed an opponent's unit, deals 1 damage to opponent's life."
   },
   {
     "name": "Overworked Netrunner",
@@ -27,7 +27,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 1 attack and 3 defense. It can deal 1 physical damage to an enemy and withstand up to 3 damage."
+    "skill": "When this unit summoned, put one of your unit to your hand."
   },
   {
     "name": "Tiny Tiger-Rider",
@@ -37,7 +37,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 2 attack and 2 defense. It can deal 2 physical damage to an enemy and withstand up to 2 damage."
+    "skill": "When this unit summoned, one of your opponent's unit get attack -1."
   },
   {
     "name": "Paw-Dwelling Runts",
@@ -47,7 +47,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 2 attack and 3 defense. It can deal 2 physical damage to an enemy and withstand up to 3 damage."
+    "skill": "When this unit summoned, draw 1 card from your deck."
   },
   {
     "name": "Dreamcup Wanderer",
@@ -57,7 +57,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 3 attack and 1 defense. It can deal 3 physical damage to an enemy and withstand up to 1 damage."
+    "skill": "When this unit summoned, one of your unit attack get +1."
   },
   {
     "name": "Blossom Stealthprowler",
@@ -67,7 +67,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 1 attack and 4 defense. It can deal 1 physical damage to an enemy and withstand up to 4 damage."
+    "skill": "This unit cannot be target for attack and skill until it attacked."
   },
   {
     "name": "Count Meowcula",
@@ -77,7 +77,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 3 attack and 3 defense. It can deal 3 physical damage to an enemy and withstand up to 3 damage."
+    "skill": "If this unit deals damage, you gain the same amount of life."
   },
   {
     "name": "Cozy Picnic Trio",
@@ -87,7 +87,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 2 attack and 4 defense. It can deal 2 physical damage to an enemy and withstand up to 4 damage."
+    "skill": "At the end of your turn, gain life for each \"Cat\" unit on your field"
   },
   {
     "name": "Faelight Stalker",
@@ -97,7 +97,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 4 attack and 2 defense. It can deal 4 physical damage to an enemy and withstand up to 2 damage."
+    "skill": "This unit cannot be target for attack and skill until it attacked."
   },
   {
     "name": "Festive Frost Guardian",
@@ -107,7 +107,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 3 attack and 4 defense. It can deal 3 physical damage to an enemy and withstand up to 4 damage."
+    "skill": "All of your unit get HP +1."
   },
   {
     "name": "Lilypad Meditator",
@@ -117,7 +117,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 4 attack and 3 defense. It can deal 4 physical damage to an enemy and withstand up to 3 damage."
+    "skill": "At the end of your turn, all unit heal 1 HP exept this unit."
   },
   {
     "name": "Little Red Mischief",
@@ -127,7 +127,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 3 attack and 5 defense. It can deal 3 physical damage to an enemy and withstand up to 5 damage."
+    "skill": "When this unit summoned, all of your opponent's unit get attack -1."
   },
   {
     "name": "Rain-weaver Oracle",
@@ -137,7 +137,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 5 attack and 2 defense. It can deal 5 physical damage to an enemy and withstand up to 2 damage."
+    "skill": "When this unit summoned, Draw 3 card choose 2 card and discard it."
   },
   {
     "name": "Shadewhisker Stalker",
@@ -147,7 +147,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 4 attack and 4 defense. It can deal 4 physical damage to an enemy and withstand up to 4 damage."
+    "skill": "This unit cannot be target for attack and skill until it attacked."
   },
   {
     "name": "Smug Watcher",
@@ -157,7 +157,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 5 attack and 3 defense. It can deal 5 physical damage to an enemy and withstand up to 3 damage."
+    "skill": "This unit cannot attack on the turn this unit is summoned. At the end of your turn, this unit get attack +5 ."
   },
   {
     "name": "Spiteful Shadow",
@@ -167,7 +167,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 3 attack and 5 defense. It can deal 3 physical damage to an enemy and withstand up to 5 damage."
+    "skill": "This unit cannot be target for attack and skill until it attacked."
   },
   {
     "name": "Sweettooth Horde",
@@ -177,7 +177,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 6 attack and 2 defense. It can deal 6 physical damage to an enemy and withstand up to 2 damage."
+    "skill": "When this unit attack if that is the 1st attack in this turn choose one of your unit, that cannot attack and this unit get  attack equal  the chosen unit."
   },
   {
     "name": "The Judgmental Observers",
@@ -187,7 +187,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 3 attack and 6 defense. It can deal 3 physical damage to an enemy and withstand up to 6 damage."
+    "skill": "When this unit summoned, destroy all of your opponent unit that has attack lower or equal 8 and deal 1 damage for each destroyed unit to your opponent life."
   },
   {
     "name": "The Whisker Boss",
@@ -197,7 +197,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 4 attack and 5 defense. It can deal 4 physical damage to an enemy and withstand up to 5 damage."
+    "skill": "When this unit summoned, all of your unit get attack +2 until the end of your turn."
   },
   {
     "name": "Void-Eyed Gazer",
@@ -207,7 +207,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 6 attack and 3 defense. It can deal 6 physical damage to an enemy and withstand up to 3 damage."
+    "skill": "It can attack your opponent directly."
   },
   {
     "name": "Wisteria Regalpaw",
@@ -217,7 +217,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 2 attack and 7 defense. It can deal 2 physical damage to an enemy and withstand up to 7 damage."
+    "skill": "When this unit summoned, opponent must discard 2 card from their hand."
   },
   {
     "name": "Titan Sabercat",
@@ -227,7 +227,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 3 attack and 3 defense. It can deal 3 physical damage to an enemy and withstand up to 3 damage."
+    "skill": "When this unit destroy opponent unit, this unit can attack 2 times for this turn and get attack +2."
   },
   {
     "name": "Black Crown Panther",
@@ -237,7 +237,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 6 attack and 5 defense. It can deal 6 physical damage to an enemy and withstand up to 5 damage."
+    "skill": "When this unit summoned, all of your opponent's unit get attack and HP -4."
   },
   {
     "name": "Golden Claw Behemoth",
@@ -247,7 +247,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Cat",
-    "description": "This unit has 2 attack and 7 defense. It can deal 2 physical damage to an enemy and withstand up to 7 damage."
+    "skill": "The 1st time this unit being attacked, it takes no damage ."
   },
   {
     "name": "Sunny Shiba",
@@ -257,7 +257,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 1 attack and 2 defense. It can deal 1 physical damage to an enemy and withstand up to 2 damage."
+    "skill": "When this unit summoned, deal 1 damage to your opponent's unit."
   },
   {
     "name": "Soft-Knit Buddy",
@@ -267,7 +267,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 2 attack and 1 defense. It can deal 2 physical damage to an enemy and withstand up to 1 damage."
+    "skill": "When this unit summoned, draw 1 card from your deck."
   },
   {
     "name": "Country Nap",
@@ -277,7 +277,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 1 attack and 3 defense. It can deal 1 physical damage to an enemy and withstand up to 3 damage."
+    "skill": "When this unit summoned, one of your unit attack get +1."
   },
   {
     "name": "Toilet Strategist",
@@ -287,7 +287,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 2 attack and 2 defense. It can deal 2 physical damage to an enemy and withstand up to 2 damage."
+    "skill": "When this unit summoned, deal 2 damage to your opponent's unit."
   },
   {
     "name": "Captain Megaphone",
@@ -297,7 +297,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 2 attack and 3 defense. It can deal 2 physical damage to an enemy and withstand up to 3 damage."
+    "skill": "When this unit summoned, all of your cost 2 or lower unit can attack 2 times this turn."
   },
   {
     "name": "Count Shiba",
@@ -307,7 +307,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 3 attack and 1 defense. It can deal 3 physical damage to an enemy and withstand up to 1 damage."
+    "skill": "If this unit deals damage, you gain the same amount of life."
   },
   {
     "name": "Birthday Celebration",
@@ -317,7 +317,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 1 attack and 4 defense. It can deal 1 physical damage to an enemy and withstand up to 4 damage."
+    "skill": "When this unit summoned, other unit cannot attack and this unit get attack equal the sum of attack  of other your unit until the end of this turn."
   },
   {
     "name": "Pumpkin Scout",
@@ -327,7 +327,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 2 attack and 4 defense. It can deal 2 physical damage to an enemy and withstand up to 4 damage."
+    "skill": "When this unit summoned, all of your opponent's unit get attack -1."
   },
   {
     "name": "Sky-Bound Fetcher",
@@ -337,7 +337,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 3 attack and 3 defense. It can deal 3 physical damage to an enemy and withstand up to 3 damage."
+    "skill": "This unit cannot be target for attack and skill until it attacked."
   },
   {
     "name": "Black Petal Muse",
@@ -347,7 +347,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 2 attack and 4 defense. It can deal 2 physical damage to an enemy and withstand up to 4 damage."
+    "skill": "At the end of your turn, all unit heal 1 HP exept this unit."
   },
   {
     "name": "Solar Radiance",
@@ -357,7 +357,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 4 attack and 2 defense. It can deal 4 physical damage to an enemy and withstand up to 2 damage."
+    "skill": "When this unit summoned, all of your opponent's unit get attack -1."
   },
   {
     "name": "Lotus Pond Spirits",
@@ -367,7 +367,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 3 attack and 4 defense. It can deal 3 physical damage to an enemy and withstand up to 4 damage."
+    "skill": "All of your unit get HP +1."
   },
   {
     "name": "Mystic Water Fox",
@@ -377,7 +377,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 4 attack and 3 defense. It can deal 4 physical damage to an enemy and withstand up to 3 damage."
+    "skill": "At the end of your turn, all unit heal 1 HP exept this unit."
   },
   {
     "name": "Space Pioneer",
@@ -387,7 +387,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 5 attack and 3 defense. It can deal 5 physical damage to an enemy and withstand up to 3 damage."
+    "skill": "When this unit summoned, summon one unit from your hand that has cost lower than 4 without paying cost."
   },
   {
     "name": "Floral Petal Keeper",
@@ -397,7 +397,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 3 attack and 5 defense. It can deal 3 physical damage to an enemy and withstand up to 5 damage."
+    "skill": "When this summoned, choose one unit it get attack +5 and at the end of battle that unit attacked, destroy that unit."
   },
   {
     "name": "Rainy Day Shelter",
@@ -407,7 +407,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 5 attack and 2 defense. It can deal 5 physical damage to an enemy and withstand up to 2 damage."
+    "skill": "When this unit summoned, Draw 3 card choose 2 card and discard it."
   },
   {
     "name": "Winter Drift Fox",
@@ -417,7 +417,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 4 attack and 4 defense. It can deal 4 physical damage to an enemy and withstand up to 4 damage."
+    "skill": "When this unit summoned, choose one of your opponent unit make it HP to 1."
   },
   {
     "name": "Forest Echo Fox",
@@ -427,7 +427,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 5 attack and 3 defense. It can deal 5 physical damage to an enemy and withstand up to 3 damage."
+    "skill": "This unit cannot be target for attack and skill until it attacked."
   },
   {
     "name": "Blossom Depth Diver",
@@ -437,7 +437,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 3 attack and 5 defense. It can deal 3 physical damage to an enemy and withstand up to 5 damage."
+    "skill": "This unit can attack at opponent unit 3 times, and cannot attack directly."
   },
   {
     "name": "Tide Tracker",
@@ -447,7 +447,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 6 attack and 2 defense. It can deal 6 physical damage to an enemy and withstand up to 2 damage."
+    "skill": "When this unit attack if this attack 4th time of this turn it get attack +2 and you can discard 1 card from your hand, this unit can attack again and get attack -2."
   },
   {
     "name": "The Three Wanderers",
@@ -457,7 +457,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 6 attack and 4 defense. It can deal 6 physical damage to an enemy and withstand up to 4 damage."
+    "skill": "This unit can attack 3 times. At the end of battle that this unit attack get attack -1."
   },
   {
     "name": "Golden-Fin Guardian",
@@ -467,7 +467,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 3 attack and 6 defense. It can deal 3 physical damage to an enemy and withstand up to 6 damage."
+    "skill": "All of your unit get attack +2."
   },
   {
     "name": "Mastiff King",
@@ -477,7 +477,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 3 attack and 3 defense. It can deal 3 physical damage to an enemy and withstand up to 3 damage."
+    "skill": "When this unit summoned, get \"Birthday Celebration\" to your hand."
   },
   {
     "name": "Moonfang Wolfdog",
@@ -487,7 +487,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 6 attack and 5 defense. It can deal 6 physical damage to an enemy and withstand up to 5 damage."
+    "skill": "When this unit summoned, destroy other unit on the field and you take 2 damage, this unit get attack +1 for each unit destroyed by this card effect."
   },
   {
     "name": "Mercy Saint Bernard",
@@ -497,7 +497,7 @@ export const excelCards = [
     "type": "unit",
     "category": "unit",
     "tribe": "Dog",
-    "description": "This unit has 2 attack and 7 defense. It can deal 2 physical damage to an enemy and withstand up to 7 damage."
+    "skill": "When this unit summoned, heal 5 life."
   },
   {
     "name": "Paw Flash",
@@ -1386,8 +1386,7 @@ export const excelCards = [
     "hp": 2,
     "type": "unit",
     "category": "guard",
-    "tribe": "Cat",
-    "description": "This guard has 2 defense. It can block up to 2 physical damage from an enemy attack."
+    "tribe": "Cat"
   },
   {
     "name": "Brave Siamese Guard",
@@ -1396,8 +1395,7 @@ export const excelCards = [
     "hp": 3,
     "type": "unit",
     "category": "guard",
-    "tribe": "Cat",
-    "description": "This guard has 3 defense. It can block up to 3 physical damage from an enemy attack."
+    "tribe": "Cat"
   },
   {
     "name": "Persian Wall",
@@ -1406,8 +1404,7 @@ export const excelCards = [
     "hp": 2,
     "type": "unit",
     "category": "guard",
-    "tribe": "Cat",
-    "description": "This guard has 2 defense. It can block up to 2 physical damage from an enemy attack."
+    "tribe": "Cat"
   },
   {
     "name": "Tabby Defender",
@@ -1416,8 +1413,7 @@ export const excelCards = [
     "hp": 3,
     "type": "unit",
     "category": "guard",
-    "tribe": "Cat",
-    "description": "This guard has 3 defense. It can block up to 3 physical damage from an enemy attack."
+    "tribe": "Cat"
   },
   {
     "name": "Shiba? No, Cat Warden",
@@ -1426,8 +1422,7 @@ export const excelCards = [
     "hp": 4,
     "type": "unit",
     "category": "guard",
-    "tribe": "Cat",
-    "description": "This guard has 4 defense. It can block up to 4 physical damage from an enemy attack."
+    "tribe": "Cat"
   },
   {
     "name": "Whisker Watcher",
@@ -1436,8 +1431,7 @@ export const excelCards = [
     "hp": 3,
     "type": "unit",
     "category": "guard",
-    "tribe": "Cat",
-    "description": "This guard has 3 defense. It can block up to 3 physical damage from an enemy attack."
+    "tribe": "Cat"
   },
   {
     "name": "Fluffy Barrier Cat",
@@ -1446,8 +1440,7 @@ export const excelCards = [
     "hp": 4,
     "type": "unit",
     "category": "guard",
-    "tribe": "Cat",
-    "description": "This guard has 4 defense. It can block up to 4 physical damage from an enemy attack."
+    "tribe": "Cat"
   },
   {
     "name": "Housecat Guardian",
@@ -1456,8 +1449,7 @@ export const excelCards = [
     "hp": 5,
     "type": "unit",
     "category": "guard",
-    "tribe": "Cat",
-    "description": "This guard has 5 defense. It can block up to 5 physical damage from an enemy attack."
+    "tribe": "Cat"
   },
   {
     "name": "Bengal Warden",
@@ -1466,8 +1458,7 @@ export const excelCards = [
     "hp": 4,
     "type": "unit",
     "category": "guard",
-    "tribe": "Cat",
-    "description": "This guard has 4 defense. It can block up to 4 physical damage from an enemy attack."
+    "tribe": "Cat"
   },
   {
     "name": "Moon Gatekeeper",
@@ -1476,8 +1467,7 @@ export const excelCards = [
     "hp": 5,
     "type": "unit",
     "category": "guard",
-    "tribe": "Cat",
-    "description": "This guard has 5 defense. It can block up to 5 physical damage from an enemy attack."
+    "tribe": "Cat"
   },
   {
     "name": "Maine Coon Frontliner",
@@ -1486,8 +1476,7 @@ export const excelCards = [
     "hp": 4,
     "type": "unit",
     "category": "guard",
-    "tribe": "Cat",
-    "description": "This guard has 4 defense. It can block up to 4 physical damage from an enemy attack."
+    "tribe": "Cat"
   },
   {
     "name": "Snow Guard Angora",
@@ -1496,8 +1485,7 @@ export const excelCards = [
     "hp": 4,
     "type": "unit",
     "category": "guard",
-    "tribe": "Cat",
-    "description": "This guard has 4 defense. It can block up to 4 physical damage from an enemy attack."
+    "tribe": "Cat"
   },
   {
     "name": "Golden Protector Cat",
@@ -1506,8 +1494,7 @@ export const excelCards = [
     "hp": 5,
     "type": "unit",
     "category": "guard",
-    "tribe": "Cat",
-    "description": "This guard has 5 defense. It can block up to 5 physical damage from an enemy attack."
+    "tribe": "Cat"
   },
   {
     "name": "Bulwark Persian",
@@ -1516,8 +1503,7 @@ export const excelCards = [
     "hp": 6,
     "type": "unit",
     "category": "guard",
-    "tribe": "Cat",
-    "description": "This guard has 6 defense. It can block up to 6 physical damage from an enemy attack."
+    "tribe": "Cat"
   },
   {
     "name": "Iron Maine Coon",
@@ -1526,8 +1512,7 @@ export const excelCards = [
     "hp": 4,
     "type": "unit",
     "category": "guard",
-    "tribe": "Cat",
-    "description": "This guard has 4 defense. It can block up to 4 physical damage from an enemy attack."
+    "tribe": "Cat"
   },
   {
     "name": "Panther Sentinel",
@@ -1536,8 +1521,7 @@ export const excelCards = [
     "hp": 5,
     "type": "unit",
     "category": "guard",
-    "tribe": "Cat",
-    "description": "This guard has 5 defense. It can block up to 5 physical damage from an enemy attack."
+    "tribe": "Cat"
   },
   {
     "name": "Royal Guard Captain Cat",
@@ -1546,8 +1530,7 @@ export const excelCards = [
     "hp": 5,
     "type": "unit",
     "category": "guard",
-    "tribe": "Cat",
-    "description": "This guard has 5 defense. It can block up to 5 physical damage from an enemy attack."
+    "tribe": "Cat"
   },
   {
     "name": "Fortress Lynx",
@@ -1556,8 +1539,7 @@ export const excelCards = [
     "hp": 6,
     "type": "unit",
     "category": "guard",
-    "tribe": "Cat",
-    "description": "This guard has 6 defense. It can block up to 6 physical damage from an enemy attack."
+    "tribe": "Cat"
   },
   {
     "name": "Saint White Cat",
@@ -1566,8 +1548,7 @@ export const excelCards = [
     "hp": 7,
     "type": "unit",
     "category": "guard",
-    "tribe": "Cat",
-    "description": "This guard has 7 defense. It can block up to 7 physical damage from an enemy attack."
+    "tribe": "Cat"
   },
   {
     "name": "Royal Pride Keeper",
@@ -1576,8 +1557,7 @@ export const excelCards = [
     "hp": 5,
     "type": "unit",
     "category": "guard",
-    "tribe": "Cat",
-    "description": "This guard has 5 defense. It can block up to 5 physical damage from an enemy attack."
+    "tribe": "Cat"
   },
   {
     "name": "Tiny Shield Pup",
@@ -1586,8 +1566,7 @@ export const excelCards = [
     "hp": 2,
     "type": "unit",
     "category": "guard",
-    "tribe": "Dog",
-    "description": "This guard has 2 defense. It can block up to 2 physical damage from an enemy attack."
+    "tribe": "Dog"
   },
   {
     "name": "Brave Chihuahua Guard",
@@ -1596,8 +1575,7 @@ export const excelCards = [
     "hp": 3,
     "type": "unit",
     "category": "guard",
-    "tribe": "Dog",
-    "description": "This guard has 3 defense. It can block up to 3 physical damage from an enemy attack."
+    "tribe": "Dog"
   },
   {
     "name": "Pug Wall",
@@ -1606,8 +1584,7 @@ export const excelCards = [
     "hp": 2,
     "type": "unit",
     "category": "guard",
-    "tribe": "Dog",
-    "description": "This guard has 2 defense. It can block up to 2 physical damage from an enemy attack."
+    "tribe": "Dog"
   },
   {
     "name": "Corgi Defender",
@@ -1616,8 +1593,7 @@ export const excelCards = [
     "hp": 3,
     "type": "unit",
     "category": "guard",
-    "tribe": "Dog",
-    "description": "This guard has 3 defense. It can block up to 3 physical damage from an enemy attack."
+    "tribe": "Dog"
   },
   {
     "name": "Shiba Shieldkeeper",
@@ -1626,8 +1602,7 @@ export const excelCards = [
     "hp": 4,
     "type": "unit",
     "category": "guard",
-    "tribe": "Dog",
-    "description": "This guard has 4 defense. It can block up to 4 physical damage from an enemy attack."
+    "tribe": "Dog"
   },
   {
     "name": "Beagle Watcher",
@@ -1636,8 +1611,7 @@ export const excelCards = [
     "hp": 3,
     "type": "unit",
     "category": "guard",
-    "tribe": "Dog",
-    "description": "This guard has 3 defense. It can block up to 3 physical damage from an enemy attack."
+    "tribe": "Dog"
   },
   {
     "name": "Fluffy Barrier Pom",
@@ -1646,8 +1620,7 @@ export const excelCards = [
     "hp": 4,
     "type": "unit",
     "category": "guard",
-    "tribe": "Dog",
-    "description": "This guard has 4 defense. It can block up to 4 physical damage from an enemy attack."
+    "tribe": "Dog"
   },
   {
     "name": "Labrador Guardian",
@@ -1656,8 +1629,7 @@ export const excelCards = [
     "hp": 5,
     "type": "unit",
     "category": "guard",
-    "tribe": "Dog",
-    "description": "This guard has 5 defense. It can block up to 5 physical damage from an enemy attack."
+    "tribe": "Dog"
   },
   {
     "name": "Bangkaew Warden",
@@ -1666,8 +1638,7 @@ export const excelCards = [
     "hp": 4,
     "type": "unit",
     "category": "guard",
-    "tribe": "Dog",
-    "description": "This guard has 4 defense. It can block up to 4 physical damage from an enemy attack."
+    "tribe": "Dog"
   },
   {
     "name": "Akita Gatekeeper",
@@ -1676,8 +1647,7 @@ export const excelCards = [
     "hp": 5,
     "type": "unit",
     "category": "guard",
-    "tribe": "Dog",
-    "description": "This guard has 5 defense. It can block up to 5 physical damage from an enemy attack."
+    "tribe": "Dog"
   },
   {
     "name": "Shepherd Frontliner",
@@ -1686,8 +1656,7 @@ export const excelCards = [
     "hp": 4,
     "type": "unit",
     "category": "guard",
-    "tribe": "Dog",
-    "description": "This guard has 4 defense. It can block up to 4 physical damage from an enemy attack."
+    "tribe": "Dog"
   },
   {
     "name": "Snow Husky Guard",
@@ -1696,8 +1665,7 @@ export const excelCards = [
     "hp": 4,
     "type": "unit",
     "category": "guard",
-    "tribe": "Dog",
-    "description": "This guard has 4 defense. It can block up to 4 physical damage from an enemy attack."
+    "tribe": "Dog"
   },
   {
     "name": "Golden Protector",
@@ -1706,8 +1674,7 @@ export const excelCards = [
     "hp": 5,
     "type": "unit",
     "category": "guard",
-    "tribe": "Dog",
-    "description": "This guard has 5 defense. It can block up to 5 physical damage from an enemy attack."
+    "tribe": "Dog"
   },
   {
     "name": "Bulldog Bastion",
@@ -1716,8 +1683,7 @@ export const excelCards = [
     "hp": 6,
     "type": "unit",
     "category": "guard",
-    "tribe": "Dog",
-    "description": "This guard has 6 defense. It can block up to 6 physical damage from an enemy attack."
+    "tribe": "Dog"
   },
   {
     "name": "Iron Shepherd",
@@ -1726,8 +1692,7 @@ export const excelCards = [
     "hp": 4,
     "type": "unit",
     "category": "guard",
-    "tribe": "Dog",
-    "description": "This guard has 4 defense. It can block up to 4 physical damage from an enemy attack."
+    "tribe": "Dog"
   },
   {
     "name": "Rottweiler Sentinel",
@@ -1736,8 +1701,7 @@ export const excelCards = [
     "hp": 5,
     "type": "unit",
     "category": "guard",
-    "tribe": "Dog",
-    "description": "This guard has 5 defense. It can block up to 5 physical damage from an enemy attack."
+    "tribe": "Dog"
   },
   {
     "name": "Dalmatian Guard Captain",
@@ -1746,8 +1710,7 @@ export const excelCards = [
     "hp": 5,
     "type": "unit",
     "category": "guard",
-    "tribe": "Dog",
-    "description": "This guard has 5 defense. It can block up to 5 physical damage from an enemy attack."
+    "tribe": "Dog"
   },
   {
     "name": "Mastiff Fortress",
@@ -1756,8 +1719,7 @@ export const excelCards = [
     "hp": 6,
     "type": "unit",
     "category": "guard",
-    "tribe": "Dog",
-    "description": "This guard has 6 defense. It can block up to 6 physical damage from an enemy attack."
+    "tribe": "Dog"
   },
   {
     "name": "Saint Bernard Shelter",
@@ -1766,8 +1728,7 @@ export const excelCards = [
     "hp": 7,
     "type": "unit",
     "category": "guard",
-    "tribe": "Dog",
-    "description": "This guard has 7 defense. It can block up to 7 physical damage from an enemy attack."
+    "tribe": "Dog"
   },
   {
     "name": "Royal Hound Keeper",
@@ -1776,7 +1737,6 @@ export const excelCards = [
     "hp": 5,
     "type": "unit",
     "category": "guard",
-    "tribe": "Dog",
-    "description": "This guard has 5 defense. It can block up to 5 physical damage from an enemy attack."
+    "tribe": "Dog"
   }
 ];
